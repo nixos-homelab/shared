@@ -58,6 +58,10 @@ in
           sm.transformDeploymentMacro
           transform.transformResource
         ];
+        DaemonSetMacro._transformers = [
+          sm.transformDaemonSetMacro
+          transform.transformResource
+        ];
         CronJobMacro._transformers = [
           sm.transformCronJobMacro
           transform.transformResource

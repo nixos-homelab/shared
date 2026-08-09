@@ -19,6 +19,39 @@ let
         }
         // fns.dotPath "metadata" (throw "You must specify metadata");
     };
+  inheritPodSpecMacro =
+    path: resource:
+    let
+      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
+      podSpecMacro = dotPath "spec.podSpecMacro" null;
+    in
+    lib.recursiveUpdate
+      (lib.setAttrByPath (lib.splitString "." path) (
+        {
+          metadata.labels = {
+            "app.kubernetes.io/name" = metadata.name;
+          }
+          // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
+        }
+        // (inheritPaths [
+          "spec.allowIngress"
+          "spec.allowEgress"
+        ])
+        // lib.optionalAttrs (podSpecMacro != null) ({
+          podSpecMacro = podSpecMacro // {
+            name = metadata.name;
+          };
+        })
+      ))
+      (
+        removeAttrs (dotPath "spec" { }) [
+          "allowIngress"
+          "allowEgress"
+          "dataPath"
+          "ingressPort"
+          "podSpecMacro"
+        ]
+      );
 in
 {
   transformWorkloadMacro =
@@ -39,8 +72,6 @@ in
           // lib.optionalAttrs (hasAttr "protocol" portSpec) { protocol = portSpec.protocol; }
       ) portsByName;
       ingressPort = dotPath "spec.ingressPort" null;
-      allowIngress = (lib.optional (ingressPort != null) "gateway") ++ (dotPath "spec.allowIngress" [ ]);
-      allowEgress = dotPath "spec.allowEgress" [ ];
     in
     {
       apiVersion = "v1";
@@ -55,26 +86,19 @@ in
           inherit metadata;
           apiVersion = "cluster.local";
           kind = "DeploymentMacro";
-          spec =
+          spec = (
+            # Nested rec.-update. allowIngress must override, but data volume setup may not.
             lib.recursiveUpdate
-              (removeAttrs (dotPath "spec" { }) [
-                "allowEgress"
-                "allowIngress"
-                "dataPath"
-                "podSpecMacro"
-                "ingressPort"
-              ])
+              (lib.recursiveUpdate (lib.optionalAttrs (dataPath != null) {
+                podSpecMacro = {
+                  mainContainer.volumeMountsByPath.${dataPath} = "data";
+                  volumesByName.data.persistentVolumeClaim.claimName = metadata.name;
+                };
+              }) (inheritPodSpecMacro "template" resource))
               {
-                inherit allowEgress allowIngress;
-                podSpecMacro =
-                  if dataPath != null then
-                    lib.recursiveUpdate {
-                      mainContainer.volumeMountsByPath.${dataPath} = "data";
-                      volumesByName.data.persistentVolumeClaim.claimName = metadata.name;
-                    } podSpecMacro
-                  else
-                    podSpecMacro;
-              };
+                allowIngress = (lib.optional (ingressPort != null) "gateway") ++ (dotPath "spec.allowIngress" [ ]);
+              }
+          );
         }
       ]
       ++ (lib.optional (dataPath != null) {
@@ -123,126 +147,61 @@ in
   transformDeploymentMacro =
     cfg: resource:
     let
-      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
-      podSpecMacro = dotPath "spec.podSpecMacro" null;
+      inherit (mkResourceHelper resource) metadata;
     in
     {
       inherit metadata;
       apiVersion = "apps/v1";
       kind = "Deployment";
-      spec =
-        lib.recursiveUpdate
-          {
-            strategy.type = "Recreate";
-            selector.matchLabels = {
-              "app.kubernetes.io/name" = metadata.name;
-            }
-            // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
-            template = {
-              metadata.labels = {
-                "app.kubernetes.io/name" = metadata.name;
-              }
-              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
-            }
-            // (inheritPaths [
-              "spec.allowIngress"
-              "spec.allowEgress"
-            ])
-            // lib.optionalAttrs (podSpecMacro != null) ({
-              podSpecMacro = podSpecMacro // {
-                name = metadata.name;
-              };
-            });
-          }
-          (
-            removeAttrs (dotPath "spec" { }) [
-              "allowIngress"
-              "allowEgress"
-              "podSpecMacro"
-            ]
-          );
+      spec = lib.recursiveUpdate {
+        strategy.type = "Recreate";
+        selector.matchLabels = {
+          "app.kubernetes.io/name" = metadata.name;
+        }
+        // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
+      } (inheritPodSpecMacro "template" resource);
+    };
+  transformDaemonSetMacro =
+    cfg: resource:
+    let
+      inherit (mkResourceHelper resource) metadata;
+    in
+    {
+      inherit metadata;
+      apiVersion = "apps/v1";
+      kind = "DaemonSet";
+      spec = lib.recursiveUpdate {
+        selector.matchLabels = {
+          "app.kubernetes.io/name" = metadata.name;
+        }
+        // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
+      } (inheritPodSpecMacro "template" resource);
     };
   transformCronJobMacro =
     cfg: resource:
     let
-      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
-      podSpecMacro = dotPath "spec.podSpecMacro" null;
+      inherit (mkResourceHelper resource) metadata;
     in
     {
       inherit metadata;
       apiVersion = "batch/v1";
       kind = "CronJob";
-      spec =
-        lib.recursiveUpdate
-          (lib.optionalAttrs (podSpecMacro != null) ({
-            jobTemplate.spec.template = {
-              metadata.labels = {
-                "app.kubernetes.io/name" = metadata.name;
-              }
-              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
-            }
-            // (inheritPaths [
-              "spec.allowIngress"
-              "spec.allowEgress"
-            ])
-            // lib.optionalAttrs (podSpecMacro != null) ({
-              podSpecMacro = {
-                restartPolicy = "OnFailure";
-              }
-              // podSpecMacro
-              // {
-                name = metadata.name;
-              };
-            });
-          }))
-          (
-            removeAttrs (dotPath "spec" { }) [
-              "allowIngress"
-              "allowEgress"
-              "podSpecMacro"
-            ]
-          );
+      spec = lib.recursiveUpdate {
+        jobTemplate.spec.template.podSpecMacro.restartPolicy = "OnFailure";
+      } (inheritPodSpecMacro "jobTemplate.spec.template" resource);
     };
   transformJobMacro =
     cfg: resource:
     let
-      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
-      podSpecMacro = dotPath "spec.podSpecMacro" null;
+      inherit (mkResourceHelper resource) metadata;
     in
     {
       inherit metadata;
       apiVersion = "batch/v1";
       kind = "Job";
-      spec =
-        lib.recursiveUpdate
-          (lib.optionalAttrs (podSpecMacro != null) ({
-            template = {
-              metadata.labels = {
-                "app.kubernetes.io/name" = metadata.name;
-              }
-              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
-            }
-            // (inheritPaths [
-              "spec.allowIngress"
-              "spec.allowEgress"
-            ])
-            // lib.optionalAttrs (podSpecMacro != null) ({
-              podSpecMacro = {
-                restartPolicy = "OnFailure";
-              }
-              // podSpecMacro
-              // {
-                name = metadata.name;
-              };
-            });
-          }))
-          (
-            removeAttrs (dotPath "spec" { }) [
-              "allowIngress"
-              "allowEgress"
-              "podSpecMacro"
-            ]
-          );
+      spec = lib.recursiveUpdate {
+        template.podSpecMacro.restartPolicy = "OnFailure";
+      } (inheritPodSpecMacro "template" resource);
     };
   transformPodSpecMacro =
     cfg: resource:
