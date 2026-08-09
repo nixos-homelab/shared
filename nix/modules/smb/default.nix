@@ -35,9 +35,12 @@ in
       openFirewall = true;
     };
     setup-secrets = {
-      sources = lib.mapAttrs' (
-        user: spec: lib.nameValuePair "SMB_PW_${user}" { description = "SMB Password for ${user}"; }
-      ) users;
+      sources = lib.mapAttrs' (user: spec: {
+        name = "SMB_PW_${user}";
+        value = {
+          description = "SMB Password for ${user}";
+        };
+      }) users;
       destinations = lib.mapAttrsToList (user: spec: {
         logPrefix = "SMB Password for ${user}";
         requires = [ "SMB_PW_${user}" ];
