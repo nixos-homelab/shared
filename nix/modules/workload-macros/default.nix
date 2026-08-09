@@ -47,9 +47,7 @@ in
   };
   config = {
     kubetree.transformers = lib.mkIf cfg.enable {
-      v1.Pod._transformers = [
-        sm.transformPodSpecMacro
-      ];
+      v1.Pod._transformers = [ sm.transformPodSpecMacro ];
       "cluster.local" = {
         WorkloadMacro._transformers = [
           sm.transformWorkloadMacro
@@ -58,6 +56,14 @@ in
         ];
         DeploymentMacro._transformers = [
           sm.transformDeploymentMacro
+          transform.transformResource
+        ];
+        CronJobMacro._transformers = [
+          sm.transformCronJobMacro
+          transform.transformResource
+        ];
+        JobMacro._transformers = [
+          sm.transformJobMacro
           transform.transformResource
         ];
         ServiceMacro._transformers = [

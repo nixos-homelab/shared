@@ -1,14 +1,30 @@
 { lib, transform, ... }:
 with builtins;
 let
-  inherit (transform) mkDotPath buildMetadata;
+  mkResourceHelper =
+    resource:
+    let
+      fns = transform.mkResourceHelper resource;
+    in
+    fns
+    // {
+      metadata =
+        let
+          name = fns.dotPath "metadata.name" (throw "You must specify metadata.name");
+          namespace = fns.dotPath "metadata.namespace" name;
+        in
+        {
+          inherit namespace;
+          labels."app.kubernetes.io/name" = name;
+        }
+        // fns.dotPath "metadata" (throw "You must specify metadata");
+    };
 in
 {
   transformWorkloadMacro =
     cfg: resource:
     let
-      dotPath = mkDotPath resource;
-      metadata = buildMetadata resource;
+      inherit (mkResourceHelper resource) dotPath metadata;
       dataPath = dotPath "spec.dataPath" null;
       podSpecMacro = dotPath "spec.podSpecMacro" null;
       portsByName = (lib.attrByPath [ "mainContainer" "portsByName" ] { } podSpecMacro);
@@ -107,8 +123,7 @@ in
   transformDeploymentMacro =
     cfg: resource:
     let
-      dotPath = mkDotPath resource;
-      metadata = buildMetadata resource;
+      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
       podSpecMacro = dotPath "spec.podSpecMacro" null;
     in
     {
@@ -127,16 +142,12 @@ in
               metadata.labels = {
                 "app.kubernetes.io/name" = metadata.name;
               }
-              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels
-              // (lib.mergeAttrsList (
-                (map (workload: { "cluster.local/${workload}-ingress" = "allow"; }) (
-                  dotPath "spec.allowIngress" [ ]
-                ))
-                ++ (map (workload: { "cluster.local/${workload}-egress" = "allow"; }) (
-                  dotPath "spec.allowEgress" [ ]
-                ))
-              ));
+              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
             }
+            // (inheritPaths [
+              "spec.allowIngress"
+              "spec.allowEgress"
+            ])
             // lib.optionalAttrs (podSpecMacro != null) ({
               podSpecMacro = podSpecMacro // {
                 name = metadata.name;
@@ -145,68 +156,163 @@ in
           }
           (
             removeAttrs (dotPath "spec" { }) [
-              "podSpecMacro"
               "allowIngress"
               "allowEgress"
+              "podSpecMacro"
+            ]
+          );
+    };
+  transformCronJobMacro =
+    cfg: resource:
+    let
+      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
+      podSpecMacro = dotPath "spec.podSpecMacro" null;
+    in
+    {
+      inherit metadata;
+      apiVersion = "batch/v1";
+      kind = "CronJob";
+      spec =
+        lib.recursiveUpdate
+          (lib.optionalAttrs (podSpecMacro != null) ({
+            jobTemplate.spec.template = {
+              metadata.labels = {
+                "app.kubernetes.io/name" = metadata.name;
+              }
+              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
+            }
+            // (inheritPaths [
+              "spec.allowIngress"
+              "spec.allowEgress"
+            ])
+            // lib.optionalAttrs (podSpecMacro != null) ({
+              podSpecMacro = {
+                restartPolicy = "OnFailure";
+              }
+              // podSpecMacro
+              // {
+                name = metadata.name;
+              };
+            });
+          }))
+          (
+            removeAttrs (dotPath "spec" { }) [
+              "allowIngress"
+              "allowEgress"
+              "podSpecMacro"
+            ]
+          );
+    };
+  transformJobMacro =
+    cfg: resource:
+    let
+      inherit (mkResourceHelper resource) dotPath metadata inheritPaths;
+      podSpecMacro = dotPath "spec.podSpecMacro" null;
+    in
+    {
+      inherit metadata;
+      apiVersion = "batch/v1";
+      kind = "Job";
+      spec =
+        lib.recursiveUpdate
+          (lib.optionalAttrs (podSpecMacro != null) ({
+            template = {
+              metadata.labels = {
+                "app.kubernetes.io/name" = metadata.name;
+              }
+              // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels;
+            }
+            // (inheritPaths [
+              "spec.allowIngress"
+              "spec.allowEgress"
+            ])
+            // lib.optionalAttrs (podSpecMacro != null) ({
+              podSpecMacro = {
+                restartPolicy = "OnFailure";
+              }
+              // podSpecMacro
+              // {
+                name = metadata.name;
+              };
+            });
+          }))
+          (
+            removeAttrs (dotPath "spec" { }) [
+              "allowIngress"
+              "allowEgress"
+              "podSpecMacro"
             ]
           );
     };
   transformPodSpecMacro =
     cfg: resource:
     let
-      dotPath = mkDotPath resource;
+      inherit (mkResourceHelper resource) dotPath;
       name = dotPath "podSpecMacro.name" (throw "The PodSpecMacro has no name");
+      podSpecMacro = dotPath "podSpecMacro" null;
     in
-    if (dotPath "podSpecMacro" null) == null then
-      resource
-    else
-      lib.recursiveUpdate (removeAttrs resource [ "podSpecMacro" ]) ({
-        spec =
-          lib.recursiveUpdate
-            {
-              securityContext = {
-                runAsUser = cfg.workload-macros.securityContext.runAsUser;
-                runAsGroup = cfg.workload-macros.securityContext.runAsGroup;
-                supplementalGroups = cfg.workload-macros.securityContext.supplementalGroups;
-                fsGroup = cfg.workload-macros.securityContext.runAsGroup;
-              };
-              containersByName = {
-                "${name}" =
-                  lib.recursiveUpdate
-                    {
-                      inherit name;
-                      securityContext = {
-                        allowPrivilegeEscalation = false;
-                        readOnlyRootFilesystem = true;
-                        capabilities.add =
-                          (dotPath "podSpecMacro.mainContainer.addCapabilities" [ ])
-                          ++ lib.optional (
-                            length (attrNames (dotPath "podSpecMacro.mainContainer.portsByName" { })) > 0
-                          ) "NET_BIND_SERVICE";
-                        capabilities.drop = [ "ALL" ];
-                      };
-                      volumeMountsByPath = dotPath "podSpecMacro.mainContainer.volumeMountsByPath" { };
-                    }
-                    (
-                      removeAttrs (dotPath "podSpecMacro.mainContainer" { }) [
-                        "addCapabilities"
-                      ]
-                    );
-              };
-              volumesByName = dotPath "podSpecMacro.volumesByName" { };
-            }
-            (
-              removeAttrs ((dotPath "podSpecMacro") (throw "Unable to find 'podSpecMacro' attribute")) [
-                "name"
-                "mainContainer"
-              ]
-            );
-      });
+    lib.recursiveUpdate
+      (removeAttrs resource [
+        "podSpecMacro"
+        "allowIngress"
+        "allowEgress"
+      ])
+      (
+        {
+          metadata.labels = (
+            lib.mergeAttrsList (
+              (map (workload: { "cluster.local/${workload}-ingress" = "allow"; }) (dotPath "allowIngress" [ ]))
+              ++ (map (workload: { "cluster.local/${workload}-egress" = "allow"; }) (dotPath "allowEgress" [ ]))
+            )
+          );
+        }
+        // lib.optionalAttrs (podSpecMacro != null) ({
+          spec =
+            lib.recursiveUpdate
+              {
+                securityContext = {
+                  runAsUser = cfg.workload-macros.securityContext.runAsUser;
+                  runAsGroup = cfg.workload-macros.securityContext.runAsGroup;
+                  supplementalGroups = cfg.workload-macros.securityContext.supplementalGroups;
+                  fsGroup = cfg.workload-macros.securityContext.runAsGroup;
+                };
+                containersByName = {
+                  "${name}" =
+                    lib.recursiveUpdate
+                      {
+                        inherit name;
+                        securityContext = {
+                          allowPrivilegeEscalation = false;
+                          readOnlyRootFilesystem = true;
+                          capabilities.add =
+                            (dotPath "podSpecMacro.mainContainer.addCapabilities" [ ])
+                            ++ lib.optional (
+                              length (attrNames (dotPath "podSpecMacro.mainContainer.portsByName" { })) > 0
+                            ) "NET_BIND_SERVICE";
+                          capabilities.drop = [ "ALL" ];
+                        };
+                        volumeMountsByPath = dotPath "podSpecMacro.mainContainer.volumeMountsByPath" { };
+                      }
+                      (
+                        removeAttrs (dotPath "podSpecMacro.mainContainer" { }) [
+                          "addCapabilities"
+                        ]
+                      );
+                };
+                volumesByName = dotPath "podSpecMacro.volumesByName" { };
+              }
+              (
+                removeAttrs podSpecMacro [
+                  "name"
+                  "mainContainer"
+                ]
+              );
+        })
+      );
   transformServiceMacro =
     cfg: resource:
     let
-      dotPath = mkDotPath resource;
-      metadata = buildMetadata resource;
+      inherit (mkResourceHelper resource) dotPath metadata;
     in
     lib.recursiveUpdate
       {
@@ -225,8 +331,7 @@ in
   transformGatewayMacro =
     cfg: resource:
     let
-      dotPath = mkDotPath resource;
-      metadata = buildMetadata resource;
+      inherit (mkResourceHelper resource) dotPath metadata;
       subdomain = dotPath "spec.subdomain" (metadata.name);
       hostname =
         if subdomain == null then

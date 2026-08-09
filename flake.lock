@@ -129,11 +129,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1781446270,
-        "narHash": "sha256-yx0qoiG/oSjyqplabrtfynCQ+r+M2sIXD6+gDPlAg6M=",
+        "lastModified": 1786285739,
+        "narHash": "sha256-OIPjeymctIAS7O8wVH25vZER7czO/EAD2z3egShOJPw=",
         "owner": "andsens",
         "repo": "nix-kubetree",
-        "rev": "3b7c9b32e491332ff3da7da715f37c3cc338f34f",
+        "rev": "88549644e955a83f458c4cf74ce056e43468e805",
         "type": "github"
       },
       "original": {

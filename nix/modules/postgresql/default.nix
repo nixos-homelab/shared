@@ -146,7 +146,7 @@ in
           ${cfg.extraSettings}
         '';
       };
-      service-macro = {
+      workload = {
         apiVersion = "cluster.local";
         kind = "WorkloadMacro";
         metadata.name = "postgresql";
@@ -186,44 +186,37 @@ in
         {
           name = jobName;
           value = {
-            apiVersion = "batch/v1";
-            kind = "Job";
+            apiVersion = "cluster.local";
+            kind = "JobMacro";
             metadata.namespace = "postgresql";
             metadata.name = jobName;
-            metadata.labels."app.kubernetes.io/name" = jobName;
-            spec.template = {
-              metadata.labels = {
-                "app.kubernetes.io/name" = jobName;
-                "cluster.local/postgresql-egress" = "allow";
-              };
-              podSpecMacro = {
-                name = jobName;
-                restartPolicy = "OnFailure";
-                mainContainer = {
-                  image = "${image.buildArgs.name}:${image.imageTag}";
-                  imagePullPolicy = "Never";
-                  command = [
-                    "bash"
-                    "-ec"
-                  ];
-                  args = [
-                    (lib.join "\n" (
-                      map (cmd: ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -f <(printf "%s" "${cmd}")'') ([
-                        "SELECT E'CREATE USER ${spec.username} WITH PASSWORD \\'${spec.password}\\'' WHERE NOT EXISTS (SELECT FROM pg_user WHERE usename = '${spec.username}')\\gexec"
-                        "SELECT 'CREATE DATABASE ${spec.dbName}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${spec.dbName}')\\gexec"
-                        "ALTER DATABASE ${spec.dbName} OWNER TO ${spec.username}"
-                      ])
-                      ++ map (
-                        cmd:
-                        ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -d ${spec.dbName} -f <(printf "%s" "${cmd}")''
-                      ) (spec.setupCommands)
-                    ))
-                  ];
-                  envByName = {
-                    PGHOST = "postgresql.postgresql";
-                    PGUSER = "postgres";
-                    PGPASSWORD = "postgres";
-                  };
+            spec.allowEgress = [ "postgresql" ];
+            spec.podSpecMacro = {
+              restartPolicy = "OnFailure";
+              mainContainer = {
+                image = "${image.buildArgs.name}:${image.imageTag}";
+                imagePullPolicy = "Never";
+                command = [
+                  "bash"
+                  "-ec"
+                ];
+                args = [
+                  (lib.join "\n" (
+                    map (cmd: ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -f <(printf "%s" "${cmd}")'') ([
+                      "SELECT E'CREATE USER ${spec.username} WITH PASSWORD \\'${spec.password}\\'' WHERE NOT EXISTS (SELECT FROM pg_user WHERE usename = '${spec.username}')\\gexec"
+                      "SELECT 'CREATE DATABASE ${spec.dbName}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${spec.dbName}')\\gexec"
+                      "ALTER DATABASE ${spec.dbName} OWNER TO ${spec.username}"
+                    ])
+                    ++ map (
+                      cmd:
+                      ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -d ${spec.dbName} -f <(printf "%s" "${cmd}")''
+                    ) (spec.setupCommands)
+                  ))
+                ];
+                envByName = {
+                  PGHOST = "postgresql.postgresql";
+                  PGUSER = "postgres";
+                  PGPASSWORD = "postgres";
                 };
               };
             };
@@ -238,40 +231,32 @@ in
         {
           name = jobName;
           value = {
-            apiVersion = "batch/v1";
-            kind = "CronJob";
+            apiVersion = "cluster.local";
+            kind = "CronJobMacro";
             metadata.namespace = "postgresql";
             metadata.name = jobName;
-            metadata.labels."app.kubernetes.io/name" = jobName;
             spec.schedule = spec.backup.schedule;
-            spec.jobTemplate.spec.template = {
-              metadata.labels = {
-                "app.kubernetes.io/name" = jobName;
-                "cluster.local/postgresql-egress" = "allow";
-              };
-              podSpecMacro = {
-                name = jobName;
-                restartPolicy = "OnFailure";
-                mainContainer = {
-                  image = "${image.buildArgs.name}:${image.imageTag}";
-                  command = [ "pg_dump" ];
-                  args = [
-                    "--username=postgres"
-                    "--dbname=${spec.dbName}"
-                    "--blobs"
-                    "--quote-all-identifiers"
-                    "--format=custom"
-                    "--file=/dumps/${spec.dbName}.pgdump"
-                  ];
-                  envByName = {
-                    PGHOST = "postgresql.postgresql";
-                    PGUSER = "postgres";
-                    PGPASSWORD = "postgres";
-                  };
-                  volumeMountsByPath."/dumps" = "data";
+            spec = {
+              allowEgress = [ "postgresql" ];
+              podSpecMacro.mainContainer = {
+                image = "${image.buildArgs.name}:${image.imageTag}";
+                command = [ "pg_dump" ];
+                args = [
+                  "--username=postgres"
+                  "--dbname=${spec.dbName}"
+                  "--blobs"
+                  "--quote-all-identifiers"
+                  "--format=custom"
+                  "--file=/dumps/${spec.dbName}.pgdump"
+                ];
+                envByName = {
+                  PGHOST = "postgresql.postgresql";
+                  PGUSER = "postgres";
+                  PGPASSWORD = "postgres";
                 };
-                volumesByName.data.persistentVolumeClaim.claimName = "database-dumps";
+                volumeMountsByPath."/dumps" = "data";
               };
+              podSpecMacro.volumesByName.data.persistentVolumeClaim.claimName = "database-dumps";
             };
           };
         }

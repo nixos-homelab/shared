@@ -51,7 +51,7 @@ in
     ];
     homelab.cluster.backup.volumes.redis.redis = [ "/dump.rdb" ];
     kubetree.resources.redis = {
-      service-macro = {
+      workload = {
         apiVersion = "cluster.local";
         kind = "WorkloadMacro";
         metadata.name = "redis";
