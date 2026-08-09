@@ -5,13 +5,13 @@
   ...
 }:
 let
-  cfg = config.kubetree.service-macros;
+  cfg = config.kubetree.workload-macros;
   transform = inputs.kubetree.lib.transform;
   sm = import ./lib.nix { inherit lib transform; };
 in
 {
-  key = "${toString __curPos.file}#modules.nixos.service-macros";
-  options.kubetree.service-macros = {
+  key = "${toString __curPos.file}#modules.nixos.workload-macros";
+  options.kubetree.workload-macros = {
     enable = lib.mkEnableOption "service macro transformers";
     domain = lib.mkOption {
       description = "Domain name to suffix hostnames with";
@@ -20,7 +20,7 @@ in
       defaultText = builtins.literalExpression "config.networking.domain";
     };
     gatewayClassName = lib.mkOption {
-      description = "Name of the Gateway class that should set on all gateways generated through the \"ServiceGateway\" macro";
+      description = "Name of the Gateway class that should set on all gateways generated through the \"GatewayMacro\" macro";
       type = lib.types.str;
     };
     acmeProvider = lib.mkOption {
@@ -48,24 +48,24 @@ in
   config = {
     kubetree.transformers = lib.mkIf cfg.enable {
       v1.Pod._transformers = [
-        sm.transformServicePod
+        sm.transformPodSpecMacro
       ];
       "cluster.local" = {
-        ServiceMacro._transformers = [
-          sm.transformServiceMacro
+        WorkloadMacro._transformers = [
+          sm.transformWorkloadMacro
           transform.transformResource
           transform.flattenResourceList
         ];
-        ServiceDeployment._transformers = [
-          sm.transformServiceDeployment
+        DeploymentMacro._transformers = [
+          sm.transformDeploymentMacro
           transform.transformResource
         ];
-        ServiceService._transformers = [
-          sm.transformServiceService
+        ServiceMacro._transformers = [
+          sm.transformServiceMacro
           transform.transformResource
         ];
-        ServiceGateway._transformers = [
-          sm.transformServiceGateway
+        GatewayMacro._transformers = [
+          sm.transformGatewayMacro
           transform.transformResource
           transform.flattenResourceList
         ];

@@ -18,7 +18,7 @@ in
     kubetree.resources.k8sss = lib.mkIf config.k8sss.enable {
       netpols = {
         apiVersion = "cluster.local";
-        kind = "ServiceNetpols";
+        kind = "NetpolMacro";
         metadata.name = "k8sss";
         spec.ports = [ config.k8sss.nodePort ];
       };

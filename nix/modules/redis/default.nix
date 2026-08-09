@@ -5,11 +5,11 @@
   ...
 }:
 let
-  cfg = config.homelab.services.redis;
+  cfg = config.homelab.workloads.redis;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.redis";
-  options.homelab.services.redis = {
+  options.homelab.workloads.redis = {
     enable = lib.mkEnableOption "Redis";
     databases = lib.mkOption {
       description = "A map of symbolic names to redis db indices. Overlaps will cause an assertion failure.";
@@ -27,7 +27,7 @@ in
         {
           assertion = length (attrNames overlaps) == 0;
           message = ''
-            homelab.services.redis.databases has overlaps in db indices.
+            homelab.workloads.redis.databases has overlaps in db indices.
             ${lib.join "\n" (
               lib.mapAttrsToList (idx: names: "The index ${idx} is used by: ${lib.join ", " names}") overlaps
             )}
@@ -41,7 +41,7 @@ in
         {
           assertion = length (attrNames nonInts) == 0;
           message = ''
-            homelab.services.redis.databases contains non-integer strings as db indices.
+            homelab.workloads.redis.databases contains non-integer strings as db indices.
             ${lib.join "\n" (
               lib.mapAttrsToList (name: idx: ''The index "${idx}" used by "${name}" is not valid.'') nonInts
             )}
@@ -53,11 +53,11 @@ in
     kubetree.resources.redis = {
       service-macro = {
         apiVersion = "cluster.local";
-        kind = "ServiceMacro";
+        kind = "WorkloadMacro";
         metadata.name = "redis";
         spec = {
           dataPath = "/data";
-          servicePodSpec = {
+          podSpecMacro = {
             mainContainer = {
               image = "redis:8.4";
               portsByName.redis = 6379;

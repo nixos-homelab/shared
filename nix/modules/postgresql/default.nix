@@ -7,7 +7,7 @@
 }:
 let
   ccfg = config.homelab.cluster;
-  cfg = config.homelab.services.postgresql;
+  cfg = config.homelab.workloads.postgresql;
   dbBackups = lib.filterAttrs (serviceName: spec: spec.backup.enable) cfg.databases;
   entrypoint = pkgs.stdenvNoCC.mkDerivation {
     name = "docker-entrypoint";
@@ -38,8 +38,8 @@ let
     runAsRoot = ''
       #!${pkgs.runtimeShell}
       ${pkgs.dockerTools.shadowSetup}
-      groupadd -r -g ${toString config.kubetree.service-macros.securityContext.runAsUser} postgres
-      useradd -r -u ${toString config.kubetree.service-macros.securityContext.runAsGroup} -g postgres -d ${pgdatadir} postgres
+      groupadd -r -g ${toString config.kubetree.workload-macros.securityContext.runAsUser} postgres
+      useradd -r -u ${toString config.kubetree.workload-macros.securityContext.runAsGroup} -g postgres -d ${pgdatadir} postgres
       mkdir -p /docker-entrypoint-initdb.d
       mkdir -p /etc/postgresql
       mkdir -p /run/postgresql
@@ -57,7 +57,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.postgresql";
-  options.homelab.services.postgresql = {
+  options.homelab.workloads.postgresql = {
     enable = lib.mkEnableOption "PostgreSQL";
     debug = lib.mkEnableOption "debug mode";
     dumpsVolume = lib.mkOption {
@@ -148,11 +148,11 @@ in
       };
       service-macro = {
         apiVersion = "cluster.local";
-        kind = "ServiceMacro";
+        kind = "WorkloadMacro";
         metadata.name = "postgresql";
         spec = {
           dataPath = "/var/lib/postgresql";
-          servicePodSpec = {
+          podSpecMacro = {
             mainContainer = {
               image = "${image.buildArgs.name}:${image.imageTag}";
               imagePullPolicy = "Never";
@@ -196,7 +196,7 @@ in
                 "app.kubernetes.io/name" = jobName;
                 "cluster.local/postgresql-egress" = "allow";
               };
-              servicePodSpec = {
+              podSpecMacro = {
                 name = jobName;
                 restartPolicy = "OnFailure";
                 mainContainer = {
@@ -249,7 +249,7 @@ in
                 "app.kubernetes.io/name" = jobName;
                 "cluster.local/postgresql-egress" = "allow";
               };
-              servicePodSpec = {
+              podSpecMacro = {
                 name = jobName;
                 restartPolicy = "OnFailure";
                 mainContainer = {

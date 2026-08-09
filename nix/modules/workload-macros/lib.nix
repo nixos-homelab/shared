@@ -4,14 +4,14 @@ let
   inherit (transform) mkDotPath buildMetadata;
 in
 {
-  transformServiceMacro =
+  transformWorkloadMacro =
     cfg: resource:
     let
       dotPath = mkDotPath resource;
       metadata = buildMetadata resource;
       dataPath = dotPath "spec.dataPath" null;
-      servicePodSpec = dotPath "spec.servicePodSpec" null;
-      portsByName = (lib.attrByPath [ "mainContainer" "portsByName" ] { } servicePodSpec);
+      podSpecMacro = dotPath "spec.podSpecMacro" null;
+      portsByName = (lib.attrByPath [ "mainContainer" "portsByName" ] { } podSpecMacro);
       netpolPorts = lib.mapAttrsToList (
         name: portSpec:
         if isInt portSpec then
@@ -38,26 +38,26 @@ in
         {
           inherit metadata;
           apiVersion = "cluster.local";
-          kind = "ServiceDeployment";
+          kind = "DeploymentMacro";
           spec =
             lib.recursiveUpdate
               (removeAttrs (dotPath "spec" { }) [
                 "allowEgress"
                 "allowIngress"
                 "dataPath"
-                "servicePodSpec"
+                "podSpecMacro"
                 "ingressPort"
               ])
               {
                 inherit allowEgress allowIngress;
-                servicePodSpec =
+                podSpecMacro =
                   if dataPath != null then
                     lib.recursiveUpdate {
                       mainContainer.volumeMountsByPath.${dataPath} = "data";
                       volumesByName.data.persistentVolumeClaim.claimName = metadata.name;
-                    } servicePodSpec
+                    } podSpecMacro
                   else
-                    servicePodSpec;
+                    podSpecMacro;
               };
         }
       ]
@@ -76,7 +76,7 @@ in
           {
             inherit metadata;
             apiVersion = "cluster.local";
-            kind = "ServiceService";
+            kind = "ServiceMacro";
             spec.portsByName = lib.mapAttrs (
               name: portSpec:
               if isInt portSpec then
@@ -92,24 +92,24 @@ in
           {
             inherit metadata;
             apiVersion = "cluster.local";
-            kind = "ServiceNetpols";
+            kind = "NetpolMacro";
             spec.ports = netpolPorts;
           }
         ]
         ++ lib.optional (ingressPort != null) ({
           inherit metadata;
           apiVersion = "cluster.local";
-          kind = "ServiceGateway";
+          kind = "GatewayMacro";
           spec.port = ingressPort;
         })
       );
     };
-  transformServiceDeployment =
+  transformDeploymentMacro =
     cfg: resource:
     let
       dotPath = mkDotPath resource;
       metadata = buildMetadata resource;
-      servicePodSpec = dotPath "spec.servicePodSpec" null;
+      podSpecMacro = dotPath "spec.podSpecMacro" null;
     in
     {
       inherit metadata;
@@ -129,44 +129,46 @@ in
               }
               // lib.optionalAttrs (hasAttr "labels" metadata) metadata.labels
               // (lib.mergeAttrsList (
-                (map (service: { "cluster.local/${service}-ingress" = "allow"; }) (dotPath "spec.allowIngress" [ ]))
-                ++ (map (service: { "cluster.local/${service}-egress" = "allow"; }) (
+                (map (workload: { "cluster.local/${workload}-ingress" = "allow"; }) (
+                  dotPath "spec.allowIngress" [ ]
+                ))
+                ++ (map (workload: { "cluster.local/${workload}-egress" = "allow"; }) (
                   dotPath "spec.allowEgress" [ ]
                 ))
               ));
             }
-            // lib.optionalAttrs (servicePodSpec != null) ({
-              servicePodSpec = servicePodSpec // {
+            // lib.optionalAttrs (podSpecMacro != null) ({
+              podSpecMacro = podSpecMacro // {
                 name = metadata.name;
               };
             });
           }
           (
             removeAttrs (dotPath "spec" { }) [
-              "servicePodSpec"
+              "podSpecMacro"
               "allowIngress"
               "allowEgress"
             ]
           );
     };
-  transformServicePod =
+  transformPodSpecMacro =
     cfg: resource:
     let
       dotPath = mkDotPath resource;
-      name = dotPath "servicePodSpec.name" (throw "The ServicePodSpec has no name");
+      name = dotPath "podSpecMacro.name" (throw "The PodSpecMacro has no name");
     in
-    if (dotPath "servicePodSpec" null) == null then
+    if (dotPath "podSpecMacro" null) == null then
       resource
     else
-      lib.recursiveUpdate (removeAttrs resource [ "servicePodSpec" ]) ({
+      lib.recursiveUpdate (removeAttrs resource [ "podSpecMacro" ]) ({
         spec =
           lib.recursiveUpdate
             {
               securityContext = {
-                runAsUser = cfg.service-macros.securityContext.runAsUser;
-                runAsGroup = cfg.service-macros.securityContext.runAsGroup;
-                supplementalGroups = cfg.service-macros.securityContext.supplementalGroups;
-                fsGroup = cfg.service-macros.securityContext.runAsGroup;
+                runAsUser = cfg.workload-macros.securityContext.runAsUser;
+                runAsGroup = cfg.workload-macros.securityContext.runAsGroup;
+                supplementalGroups = cfg.workload-macros.securityContext.supplementalGroups;
+                fsGroup = cfg.workload-macros.securityContext.runAsGroup;
               };
               containersByName = {
                 "${name}" =
@@ -177,30 +179,30 @@ in
                         allowPrivilegeEscalation = false;
                         readOnlyRootFilesystem = true;
                         capabilities.add =
-                          (dotPath "servicePodSpec.mainContainer.addCapabilities" [ ])
+                          (dotPath "podSpecMacro.mainContainer.addCapabilities" [ ])
                           ++ lib.optional (
-                            length (attrNames (dotPath "servicePodSpec.mainContainer.portsByName" { })) > 0
+                            length (attrNames (dotPath "podSpecMacro.mainContainer.portsByName" { })) > 0
                           ) "NET_BIND_SERVICE";
                         capabilities.drop = [ "ALL" ];
                       };
-                      volumeMountsByPath = dotPath "servicePodSpec.mainContainer.volumeMountsByPath" { };
+                      volumeMountsByPath = dotPath "podSpecMacro.mainContainer.volumeMountsByPath" { };
                     }
                     (
-                      removeAttrs (dotPath "servicePodSpec.mainContainer" { }) [
+                      removeAttrs (dotPath "podSpecMacro.mainContainer" { }) [
                         "addCapabilities"
                       ]
                     );
               };
-              volumesByName = dotPath "servicePodSpec.volumesByName" { };
+              volumesByName = dotPath "podSpecMacro.volumesByName" { };
             }
             (
-              removeAttrs ((dotPath "servicePodSpec") (throw "Unable to find 'servicePodSpec' attribute")) [
+              removeAttrs ((dotPath "podSpecMacro") (throw "Unable to find 'podSpecMacro' attribute")) [
                 "name"
                 "mainContainer"
               ]
             );
       });
-  transformServiceService =
+  transformServiceMacro =
     cfg: resource:
     let
       dotPath = mkDotPath resource;
@@ -220,7 +222,7 @@ in
           "metadata"
         ]
       );
-  transformServiceGateway =
+  transformGatewayMacro =
     cfg: resource:
     let
       dotPath = mkDotPath resource;
@@ -228,9 +230,9 @@ in
       subdomain = dotPath "spec.subdomain" (metadata.name);
       hostname =
         if subdomain == null then
-          cfg.service-macros.domain
+          cfg.workload-macros.domain
         else
-          "${subdomain}.${cfg.service-macros.domain}";
+          "${subdomain}.${cfg.workload-macros.domain}";
     in
     {
       apiVersion = "v1";
@@ -240,10 +242,10 @@ in
           apiVersion = "gateway.networking.k8s.io/v1";
           kind = "Gateway";
           metadata = metadata // {
-            annotations."cert-manager.io/cluster-issuer" = cfg.service-macros.acmeProvider;
+            annotations."cert-manager.io/cluster-issuer" = cfg.workload-macros.acmeProvider;
           };
           spec = {
-            gatewayClassName = cfg.service-macros.gatewayClassName;
+            gatewayClassName = cfg.workload-macros.gatewayClassName;
             listeners = [
               {
                 inherit hostname;
@@ -286,7 +288,7 @@ in
                   backendRefs = [
                     {
                       name = metadata.name;
-                      port = dotPath "spec.port" (throw "You must specificy a port for ServiceGateway");
+                      port = dotPath "spec.port" (throw "You must specificy a port for GatewayMacro");
                     }
                   ];
                 }

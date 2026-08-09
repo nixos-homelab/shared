@@ -210,7 +210,7 @@ in
         };
         webhook-libdns-deployment = {
           apiVersion = "cluster.local";
-          kind = "ServiceDeployment";
+          kind = "DeploymentMacro";
           metadata = {
             namespace = "cert-manager";
             name = "cert-manager-webhook-libdns";
@@ -220,7 +220,7 @@ in
             "internet"
           ];
           spec.allowIngress = [ "apiserver" ];
-          spec.servicePodSpec = {
+          spec.podSpecMacro = {
             serviceAccountName = "cert-manager-webhook-libdns";
             securityContext.fsGroup = 1001;
             mainContainer = {
@@ -257,7 +257,7 @@ in
         };
         webhook-libdns-service = {
           apiVersion = "cluster.local";
-          kind = "ServiceService";
+          kind = "ServiceMacro";
           metadata.namespace = "cert-manager";
           metadata.name = "cert-manager-webhook-libdns";
           spec.portsByName.https = {

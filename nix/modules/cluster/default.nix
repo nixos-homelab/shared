@@ -101,7 +101,7 @@ in
   };
   imports = [
     inputs.kubetree.nixosModules.default
-    self.nixosModules.service-macros
+    self.nixosModules.workload-macros
     inputs.setup-secrets.nixosModules.default
   ];
   config = lib.mkIf ccfg.enable {
@@ -109,7 +109,7 @@ in
     services.k3s.enable = true;
     kubetree = {
       kubernetes.enable = true;
-      service-macros = {
+      workload-macros = {
         enable = true;
         domain = ccfg.domain;
       };

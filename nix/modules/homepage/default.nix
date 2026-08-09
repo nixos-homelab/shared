@@ -7,7 +7,7 @@
 }:
 let
   ccfg = config.homelab.cluster;
-  cfg = config.homelab.services.homepage;
+  cfg = config.homelab.homepage;
   backgroundImage = pkgs.fetchurl {
     name = "backgroundImage.png";
     url = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
@@ -51,8 +51,8 @@ let
 in
 {
   # https://github.com/hercules-ci/flake-parts/pull/251
-  key = "${toString __curPos.file}#modules.nixos.services";
-  options.homelab.services.homepage = {
+  key = "${toString __curPos.file}#modules.nixos.homepage";
+  options.homelab.homepage = {
     enable = lib.mkEnableOption "homepage";
     debug = lib.mkEnableOption "debug mode";
     allowEgress = lib.mkOption {
@@ -78,7 +78,7 @@ in
   };
   imports = [ self.nixosModules.cluster ];
   config = lib.mkIf cfg.enable {
-    homelab.services.homepage.services.Media = {
+    homelab.homepage.services.Media = {
       sort = lib.mkDefault 50;
       layout = lib.mkDefault {
         header = false;
@@ -86,7 +86,7 @@ in
         columns = 3;
       };
     };
-    homelab.services.homepage.services.Managers = {
+    homelab.homepage.services.Managers = {
       sort = lib.mkDefault 100;
       layout = lib.mkDefault {
         header = false;
@@ -94,7 +94,7 @@ in
         columns = 3;
       };
     };
-    homelab.services.homepage.services.Download = {
+    homelab.homepage.services.Download = {
       sort = lib.mkDefault 150;
       layout = lib.mkDefault {
         header = false;
@@ -102,7 +102,7 @@ in
         columns = 3;
       };
     };
-    homelab.services.homepage.services.Finance = {
+    homelab.homepage.services.Finance = {
       sort = lib.mkDefault 150;
       layout = lib.mkDefault {
         header = false;
@@ -110,7 +110,7 @@ in
         columns = 3;
       };
     };
-    homelab.services.homepage.services.Monitoring = {
+    homelab.homepage.services.Monitoring = {
       sort = lib.mkDefault 150;
       layout = lib.mkDefault {
         header = false;
@@ -180,7 +180,7 @@ in
         };
         service-macro = {
           apiVersion = "cluster.local";
-          kind = "ServiceMacro";
+          kind = "WorkloadMacro";
           metadata.name = "homepage";
           spec = {
             allowIngress = [ "gateway" ];
@@ -189,7 +189,7 @@ in
             ]
             ++ cfg.allowEgress;
             ingressPort = null;
-            servicePodSpec.mainContainer = {
+            podSpecMacro.mainContainer = {
               image = "${image.buildArgs.name}:${image.imageTag}";
               imagePullPolicy = "Never";
               envByName = cfg.envByName // {
@@ -227,7 +227,7 @@ in
                   "/app/public/images/background.png" = "background-image";
                 };
             };
-            servicePodSpec.volumesByName = {
+            podSpecMacro.volumesByName = {
               config.configMap.name = "homepage";
               logs.emptyDir = { };
               pages.emptyDir = { };
@@ -240,7 +240,7 @@ in
         };
         gateway = {
           apiVersion = "cluster.local";
-          kind = "ServiceGateway";
+          kind = "GatewayMacro";
           metadata.name = "homepage";
           spec.port = 3000;
           spec.subdomain = null;
