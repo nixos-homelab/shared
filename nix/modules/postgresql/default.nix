@@ -7,7 +7,7 @@
 }:
 let
   ccfg = config.homelab.cluster;
-  cfg = config.homelab.workloads.postgresql;
+  cfg = config.homelab.postgresql;
   dbBackups = lib.filterAttrs (serviceName: spec: spec.backup.enable) cfg.databases;
   entrypoint = pkgs.stdenvNoCC.mkDerivation {
     name = "docker-entrypoint";
@@ -57,7 +57,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.postgresql";
-  options.homelab.workloads.postgresql = {
+  options.homelab.postgresql = {
     enable = lib.mkEnableOption "PostgreSQL";
     debug = lib.mkEnableOption "debug mode";
     dumpsVolume = lib.mkOption {
