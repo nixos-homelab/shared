@@ -59,8 +59,7 @@ in
     let
       inherit (mkResourceHelper resource) dotPath metadata;
       dataPath = dotPath "spec.dataPath" null;
-      podSpecMacro = dotPath "spec.podSpecMacro" null;
-      portsByName = (lib.attrByPath [ "mainContainer" "portsByName" ] { } podSpecMacro);
+      portsByName = dotPath "spec.podSpecMacro.mainContainer.portsByName" { };
       netpolPorts = lib.mapAttrsToList (
         name: portSpec:
         if isInt portSpec then
