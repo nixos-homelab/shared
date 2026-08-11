@@ -26,7 +26,7 @@
             field=$1
             value=$2
             shift; shift || { printf "Uneven number of arguments\n" >&2; return 1; }
-            args+=("--from-literal=$field=$(printf "%q" "$value")")
+            args+=("--from-literal=$field=$value")
           done
           kubectl create secret generic --dry-run=client -oyaml \
             -n "$namespace" "$name" "''${args[@]}" | \
