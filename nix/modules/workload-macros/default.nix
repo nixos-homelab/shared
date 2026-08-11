@@ -1,5 +1,6 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
+  pkgs,
   lib,
   config,
   ...
@@ -27,6 +28,11 @@ in
     acmeProvider = lib.mkOption {
       description = "The ACME provider that Ingresses should use for obtaining TLS certs";
       type = lib.types.str;
+    };
+    containerUtils = lib.mkOption {
+      description = "Image ref for container-utils";
+      type = lib.types.str;
+      default = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
     };
     securityContext = {
       runAsUser = lib.mkOption {
@@ -79,6 +85,10 @@ in
           sm.transformGatewayMacro
           transform.transformResource
           transform.flattenResourceList
+        ];
+        ScriptMacro._transformers = [
+          sm.transformScriptMacro
+          transform.transformResource
         ];
       };
     };

@@ -53,7 +53,7 @@ let
         ]
       );
 in
-{
+rec {
   transformWorkloadMacro =
     cfg: resource:
     let
@@ -394,6 +394,55 @@ in
             ];
           };
         }
+      ];
+    };
+  transformScriptMacro =
+    cfg: resource:
+    let
+      inherit (mkResourceHelper resource) dotPath metadata;
+      script = dotPath "spec.script" (throw "ScriptMacro has no spec.script");
+    in
+    {
+      apiVersion = "v1";
+      kind = "List";
+      items = [
+        {
+          apiVersion = "v1";
+          kind = "ConfigMap";
+          inherit metadata;
+          data."${metadata.name}.sh" = script;
+        }
+        (transformJobMacro cfg {
+          apiVersion = "cluster.local";
+          kind = "JobMacro";
+          inherit metadata;
+          spec =
+            lib.recursiveUpdate
+              (removeAttrs (dotPath "spec" resource) [
+                "script"
+              ])
+              {
+                podSpecMacro.mainContainer =
+                  let
+                    # Calculate mountpath dynamically so the job re-runs on changes
+                    scriptPath = "/scripts/${builtins.substring 0 8 (builtins.hashString "sha256" (script))}.sh";
+                  in
+                  {
+                    image = cfg.workloadMacros.containerUtils;
+                    imagePullPolicy = "Never";
+                    command = [ "bash" ];
+                    args = [ "${scriptPath}" ];
+                    volumeMountsByPath = {
+                      ${scriptPath} = {
+                        name = "script";
+                        subPath = "${metadata.name}.sh";
+                        readOnly = true;
+                      };
+                    };
+                  };
+                podSpecMacro.volumesByName.script.configMap.name = metadata.name;
+              };
+        })
       ];
     };
 }
