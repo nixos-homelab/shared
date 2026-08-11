@@ -38,8 +38,8 @@ let
     runAsRoot = ''
       #!${pkgs.runtimeShell}
       ${pkgs.dockerTools.shadowSetup}
-      groupadd -r -g ${toString config.kubetree.workload-macros.securityContext.runAsUser} postgres
-      useradd -r -u ${toString config.kubetree.workload-macros.securityContext.runAsGroup} -g postgres -d ${pgdatadir} postgres
+      groupadd -r -g ${toString config.kubetree.workloadMacros.securityContext.runAsUser} postgres
+      useradd -r -u ${toString config.kubetree.workloadMacros.securityContext.runAsGroup} -g postgres -d ${pgdatadir} postgres
       mkdir -p /docker-entrypoint-initdb.d
       mkdir -p /etc/postgresql
       mkdir -p /run/postgresql

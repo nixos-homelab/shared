@@ -5,13 +5,14 @@
   ...
 }:
 let
-  cfg = config.kubetree.workload-macros;
+  cfg = config.kubetree.workloadMacros;
   transform = inputs.kubetree.lib.transform;
   sm = import ./lib.nix { inherit lib transform; };
+  container-utils = self.packages.${pkgs.stdenv.hostPlatform.system}.container-utils;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.workload-macros";
-  options.kubetree.workload-macros = {
+  options.kubetree.workloadMacros = {
     enable = lib.mkEnableOption "service macro transformers";
     domain = lib.mkOption {
       description = "Domain name to suffix hostnames with";

@@ -229,10 +229,10 @@ in
             lib.recursiveUpdate
               {
                 securityContext = {
-                  runAsUser = cfg.workload-macros.securityContext.runAsUser;
-                  runAsGroup = cfg.workload-macros.securityContext.runAsGroup;
-                  supplementalGroups = cfg.workload-macros.securityContext.supplementalGroups;
-                  fsGroup = cfg.workload-macros.securityContext.runAsGroup;
+                  runAsUser = cfg.workloadMacros.securityContext.runAsUser;
+                  runAsGroup = cfg.workloadMacros.securityContext.runAsGroup;
+                  supplementalGroups = cfg.workloadMacros.securityContext.supplementalGroups;
+                  fsGroup = cfg.workloadMacros.securityContext.runAsGroup;
                 };
                 containersByName = {
                   "${name}" =
@@ -293,9 +293,9 @@ in
       subdomain = dotPath "spec.subdomain" (metadata.name);
       hostname =
         if subdomain == null then
-          cfg.workload-macros.domain
+          cfg.workloadMacros.domain
         else
-          "${subdomain}.${cfg.workload-macros.domain}";
+          "${subdomain}.${cfg.workloadMacros.domain}";
     in
     {
       apiVersion = "v1";
@@ -305,10 +305,10 @@ in
           apiVersion = "gateway.networking.k8s.io/v1";
           kind = "Gateway";
           metadata = metadata // {
-            annotations."cert-manager.io/cluster-issuer" = cfg.workload-macros.acmeProvider;
+            annotations."cert-manager.io/cluster-issuer" = cfg.workloadMacros.acmeProvider;
           };
           spec = {
-            gatewayClassName = cfg.workload-macros.gatewayClassName;
+            gatewayClassName = cfg.workloadMacros.gatewayClassName;
             listeners = [
               {
                 inherit hostname;
