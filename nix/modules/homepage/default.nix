@@ -62,6 +62,12 @@ in
     envByName = lib.mkOption {
       description = "Additional environment options to add to the homepage container";
       type = lib.types.attrsOf lib.types.anything;
+      default = { };
+    };
+    envFrom = lib.mkOption {
+      description = "Additional environment options to add to the homepage container";
+      type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
+      default = { };
     };
     widgets = lib.mkOption {
       description = "Widgets to add to homepage";
@@ -197,6 +203,7 @@ in
                 PUID = "1000";
                 PGID = "1000";
               };
+              envFrom = cfg.envFrom;
               portsByName.web = 3000;
               livenessProbe.httpGet.port = "web";
               readinessProbe.httpGet.port = "web";
