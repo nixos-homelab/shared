@@ -124,134 +124,141 @@ in
         columns = 3;
       };
     };
+    homelab.homepage.services.Networking = {
+      sort = lib.mkDefault 150;
+      layout = lib.mkDefault {
+        header = false;
+        style = "row";
+        columns = 3;
+      };
+    };
     services.k3s.images = [ image ];
     services.k3s.manifests.homepage-static.source = ./homepage.yaml;
-    kubetree.resources = {
-      homepage-dynamic = {
-        config = {
-          apiVersion = "v1";
-          kind = "ConfigMap";
-          metadata.name = "homepage";
-          metadata.namespace = "homepage";
-          data = {
-            "kubernetes.yaml" = builtins.toJSON { mode = "cluster"; };
-            "bookmarks.yaml" = builtins.toJSON [ ];
-            "services.yaml" = builtins.toJSON (
-              map (
-                { name, value }:
-                {
-                  ${name} =
-                    map
-                      (
-                        { name, value }:
-                        {
-                          ${name} = lib.removeAttrs value [ "sort" ];
-                        }
-                      )
-                      (
-                        toSortedList (
-                          lib.removeAttrs value [
-                            "sort"
-                            "layout"
-                          ]
-                        )
-                      );
-                }
-              ) (toSortedList cfg.services)
-            );
-            "widgets.yaml" = builtins.toJSON (
-              map (
-                { name, value }:
-                {
-                  ${name} = lib.removeAttrs value [ "sort" ];
-                }
-              ) (toSortedList cfg.widgets)
-            );
-            "docker.yaml" = "";
-            "settings.yaml" = builtins.toJSON {
-              disableUpdateCheck = true;
-              background = "/images/background.png";
-              cardBlur = "xs";
-              layout = map (
-                { name, value }:
-                {
-                  ${name} = value.layout or { };
-                }
-              ) (toSortedList cfg.services);
-            };
-            "proxmox.yaml" = "";
-            "custom.css" = "";
-            "custom.js" = "";
-          };
-        };
-        workload = {
-          apiVersion = "cluster.local";
-          kind = "WorkloadMacro";
-          metadata.name = "homepage";
-          spec = {
-            allowIngress = [ "gateway" ];
-            allowEgress = [
-              "apiserver"
-            ]
-            ++ cfg.allowEgress;
-            ingressPort = null;
-            podSpecMacro.mainContainer = {
-              image = "${image.buildArgs.name}:${image.imageTag}";
-              imagePullPolicy = "Never";
-              envByName = cfg.envByName // {
-                HOMEPAGE_ALLOWED_HOSTS = ccfg.domain;
-                PUID = "1000";
-                PGID = "1000";
-              };
-              envFrom = cfg.envFrom;
-              portsByName.web = 3000;
-              livenessProbe.httpGet.port = "web";
-              readinessProbe.httpGet.port = "web";
-              volumeMountsByPath =
-                (lib.mergeAttrsList (
+    kubetree.resources.homepage = {
+      config = {
+        apiVersion = "v1";
+        kind = "ConfigMap";
+        metadata.name = "homepage";
+        metadata.namespace = "homepage";
+        data = {
+          "kubernetes.yaml" = builtins.toJSON { mode = "cluster"; };
+          "bookmarks.yaml" = builtins.toJSON [ ];
+          "services.yaml" = builtins.toJSON (
+            map (
+              { name, value }:
+              {
+                ${name} =
                   map
-                    (filename: {
-                      "/app/config/${filename}" = {
-                        name = "config";
-                        subPath = filename;
-                      };
-                    })
-                    [
-                      "custom.js"
-                      "custom.css"
-                      "bookmarks.yaml"
-                      "docker.yaml"
-                      "kubernetes.yaml"
-                      "proxmox.yaml"
-                      "services.yaml"
-                      "settings.yaml"
-                      "widgets.yaml"
-                    ]
-                ))
-                // {
-                  "/app/.next/server/pages" = "pages";
-                  "/app/config/logs" = "logs";
-                  "/app/public/images/background.png" = "background-image";
-                };
+                    (
+                      { name, value }:
+                      {
+                        ${name} = lib.removeAttrs value [ "sort" ];
+                      }
+                    )
+                    (
+                      toSortedList (
+                        lib.removeAttrs value [
+                          "sort"
+                          "layout"
+                        ]
+                      )
+                    );
+              }
+            ) (toSortedList cfg.services)
+          );
+          "widgets.yaml" = builtins.toJSON (
+            map (
+              { name, value }:
+              {
+                ${name} = lib.removeAttrs value [ "sort" ];
+              }
+            ) (toSortedList cfg.widgets)
+          );
+          "docker.yaml" = "";
+          "settings.yaml" = builtins.toJSON {
+            disableUpdateCheck = true;
+            background = "/images/background.png";
+            cardBlur = "xs";
+            layout = map (
+              { name, value }:
+              {
+                ${name} = value.layout or { };
+              }
+            ) (toSortedList cfg.services);
+          };
+          "proxmox.yaml" = "";
+          "custom.css" = "";
+          "custom.js" = "";
+        };
+      };
+      workload = {
+        apiVersion = "cluster.local";
+        kind = "WorkloadMacro";
+        metadata.name = "homepage";
+        spec = {
+          allowIngress = [ "gateway" ];
+          allowEgress = [
+            "apiserver"
+          ]
+          ++ cfg.allowEgress;
+          ingressPort = null;
+          podSpecMacro.serviceAccountName = "homepage";
+          podSpecMacro.mainContainer = {
+            image = "${image.buildArgs.name}:${image.imageTag}";
+            imagePullPolicy = "Never";
+            envByName = cfg.envByName // {
+              HOMEPAGE_ALLOWED_HOSTS = ccfg.domain;
+              PUID = "1000";
+              PGID = "1000";
             };
-            podSpecMacro.volumesByName = {
-              config.configMap.name = "homepage";
-              logs.emptyDir = { };
-              pages.emptyDir = { };
-              background-image = {
-                hostPath.path = backgroundImage;
-                hostPath.type = "File";
+            envFrom = cfg.envFrom;
+            portsByName.web = 3000;
+            livenessProbe.httpGet.port = "web";
+            readinessProbe.httpGet.port = "web";
+            volumeMountsByPath =
+              (lib.mergeAttrsList (
+                map
+                  (filename: {
+                    "/app/config/${filename}" = {
+                      name = "config";
+                      subPath = filename;
+                    };
+                  })
+                  [
+                    "custom.js"
+                    "custom.css"
+                    "bookmarks.yaml"
+                    "docker.yaml"
+                    "kubernetes.yaml"
+                    "proxmox.yaml"
+                    "services.yaml"
+                    "settings.yaml"
+                    "widgets.yaml"
+                  ]
+              ))
+              // {
+                "/app/.next/server/pages" = "pages";
+                "/app/config/logs" = "logs";
+                "/app/public/images/background.png" = "background-image";
               };
+          };
+          podSpecMacro.volumesByName = {
+            config.configMap.name = "homepage";
+            logs.emptyDir = { };
+            pages.emptyDir = { };
+            background-image = {
+              hostPath.path = backgroundImage;
+              hostPath.type = "File";
             };
           };
         };
-        gateway = {
-          apiVersion = "cluster.local";
-          kind = "GatewayMacro";
-          metadata.name = "homepage";
-          spec.port = 3000;
-          spec.subdomain = null;
-        };
+      };
+      gateway = {
+        apiVersion = "cluster.local";
+        kind = "GatewayMacro";
+        metadata.name = "homepage";
+        spec.port = 3000;
+        spec.subdomain = null;
       };
     };
   };
