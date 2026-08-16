@@ -67,7 +67,7 @@ in
     envFrom = lib.mkOption {
       description = "Additional environment options to add to the homepage container";
       type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
-      default = { };
+      default = [ ];
     };
     widgets = lib.mkOption {
       description = "Widgets to add to homepage";
@@ -206,12 +206,42 @@ in
           podSpecMacro.mainContainer = {
             image = "${image.buildArgs.name}:${image.imageTag}";
             imagePullPolicy = "Never";
-            envByName = cfg.envByName // {
-              HOMEPAGE_ALLOWED_HOSTS = ccfg.domain;
-              PUID = "1000";
-              PGID = "1000";
-            };
-            envFrom = cfg.envFrom;
+            # Make all referenced env vars optional. Homepage can handle some values not being present
+            envByName =
+              (lib.mapAttrs (
+                name: spec:
+                if lib.isAttrs spec && spec ? valueFrom then
+                  (
+                    if spec.valueFrom ? configMapKeyRef then
+                      lib.recursiveUpdate spec { valueFrom.configMapKeyRef.optional = true; }
+                    else
+                      (
+                        if spec.valueFrom ? secretKeyRef then
+                          lib.recursiveUpdate spec { valueFrom.secretKeyRef.optional = true; }
+                        else
+                          spec
+                      )
+                  )
+                else
+                  spec
+              ) cfg.envByName)
+              // {
+                HOMEPAGE_ALLOWED_HOSTS = ccfg.domain;
+                PUID = "1000";
+                PGID = "1000";
+              };
+            envFrom = map (
+              spec:
+              if lib.isAttrs spec then
+                (
+                  if spec ? configMapRef then
+                    lib.recursiveUpdate spec { configMapRef.optional = true; }
+                  else
+                    (if spec ? secretRef then lib.recursiveUpdate spec { secretRef.optional = true; } else spec)
+                )
+              else
+                spec
+            ) cfg.envFrom;
             portsByName.web = 3000;
             livenessProbe.httpGet.port = "web";
             readinessProbe.httpGet.port = "web";
