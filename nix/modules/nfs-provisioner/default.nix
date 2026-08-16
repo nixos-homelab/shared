@@ -68,6 +68,7 @@ in
           )
         ) (config.homelab.cluster.backup.volumes)
       );
+      defaultText = "";
     };
   };
   config = {

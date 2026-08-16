@@ -19,7 +19,7 @@ in
       description = "Domain name to suffix hostnames with";
       type = lib.types.str;
       default = config.networking.domain;
-      defaultText = builtins.literalExpression "config.networking.domain";
+      defaultText = lib.literalExpression "config.networking.domain";
     };
     gatewayClassName = lib.mkOption {
       description = "Name of the Gateway class that should set on all gateways generated through the \"GatewayMacro\" macro";
@@ -33,6 +33,7 @@ in
       description = "Image ref for container-utils";
       type = lib.types.str;
       default = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
+      defaultText = lib.literalExpression "homelab-shared.packages.container-utils";
     };
     securityContext = {
       runAsUser = lib.mkOption {
