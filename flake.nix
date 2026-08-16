@@ -27,6 +27,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     kube-generators.url = "github:farcaller/nix-kube-generators";
+    docs = {
+      url = "github:andsens/nix-docs";
+      inputs.systems.follows = "systems";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+    };
   };
   outputs =
     {
@@ -51,7 +57,7 @@
         flake = {
           lib = {
             importsApply = map (path: importApply path { inherit self inputs; });
-            ip = import ./nix/lib/ip.nix { inherit lib; };
+            ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };
             k8s = import ./nix/lib/k8s.nix { inherit lib; };
             setup-secrets = import ./nix/lib/setup-secrets.nix { inherit lib; };
           };
@@ -71,9 +77,28 @@
         };
         perSystem =
           { pkgs, system, ... }:
+          let
+            lib-docs = inputs.docs.lib.docs.lib {
+              inherit pkgs;
+              paths.lib = ./nix/lib;
+            };
+            options-docs = inputs.docs.lib.docs.options {
+              inherit pkgs;
+              modules = lib.attrValues self.nixosModules;
+              repoPath = toString self;
+              repoLinkPrefix = "https://github.com/nixos-homelab/shared/blob/main";
+            };
+          in
           {
+            apps.update-docs.program = inputs.docs.lib.docs.updateRepo {
+              inherit pkgs;
+              paths."docs/lib" = "${lib-docs}/lib";
+              paths."docs/options.md" = options-docs.optionsCommonMark;
+            };
             packages = {
               container-utils = pkgs.callPackage ./nix/packages/container-utils { };
+              lib-docs = lib-docs;
+              options-docs = options-docs.optionsCommonMark;
             };
           };
       }

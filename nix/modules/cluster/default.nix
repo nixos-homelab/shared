@@ -8,7 +8,7 @@
 let
   ccfg = config.homelab.cluster;
   flakePkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
-  ipv4 = self.lib.ip.v4;
+  ipv4 = self.lib.ipv4;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   k3sConfig = kubelib.toYAMLFile ({
     data-dir = ccfg.dataDir;
