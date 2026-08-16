@@ -121,6 +121,7 @@ in
         url = "https://raw.githubusercontent.com/docker-library/postgres/62a714f93cc32220de46fd12235c9d509e3b1ad6/18/trixie/docker-entrypoint.sh";
         hash = "sha256-nEQCma4EoKedVbi/AzBwNtiQpAl50vtpgHPJBQ1LIKU=";
       };
+      defaultText = "The entrypoint from the official image";
     };
     image.package = lib.mkPackageOption pkgs "postgresql_18" { };
     image.extensions = lib.mkOption {
