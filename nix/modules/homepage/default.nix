@@ -8,10 +8,19 @@
 let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.homepage;
-  backgroundImage = pkgs.fetchurl {
-    name = "backgroundImage.png";
-    url = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
-    hash = "sha256-ixg2MEbI/0tvJXAQ9V2JB9yyiUrOPgIE5QNtpahIIQE=";
+  assets = pkgs.stdenvNoCC.mkDerivation {
+    name = "assets";
+    phases = [ "installPhase" ];
+    installPhase = ''
+      runHook preInstall
+      mkdir -p "$out/app/public/assets"
+      ${lib.join "\n" (
+        lib.mapAttrsToList (
+          dest: src: "cp ${src} $out/app/public/assets/${lib.escapeShellArg dest}"
+        ) cfg.assets
+      )}
+      runHook postInstall
+    '';
   };
   image = pkgs.dockerTools.buildImage {
     name = "cluster.local/homepage";
@@ -22,7 +31,11 @@ let
       os = "linux";
       arch = "x86_64";
     };
-    copyToRoot = [ pkgs.bash ] ++ lib.optionals cfg.debug ccfg.debugTools;
+    copyToRoot = [
+      pkgs.bash
+      assets
+    ]
+    ++ lib.optionals cfg.debug ccfg.debugTools;
     runAsRoot = ''
       #!${pkgs.runtimeShell}
       cp -r /app/.next/server/pages /app/.next/server/pages-template
@@ -69,6 +82,21 @@ in
       type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
       default = [ ];
     };
+    backgroundImage = lib.mkOption {
+      description = "Background image";
+      type = lib.types.package;
+      default = pkgs.fetchurl {
+        name = "backgroundImage.png";
+        url = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
+        hash = "sha256-ixg2MEbI/0tvJXAQ9V2JB9yyiUrOPgIE5QNtpahIIQE=";
+      };
+      defaultText = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
+    };
+    assets = lib.mkOption {
+      description = "Assets to embed in the homepage image, <EMBEDDED-NAME> -> <PATH>";
+      type = lib.types.attrsOf lib.types.path;
+      default = { };
+    };
     widgets = lib.mkOption {
       description = "Widgets to add to homepage";
       type = lib.types.attrsOf lib.types.anything;
@@ -81,9 +109,37 @@ in
       );
       default = { };
     };
+    bookmarks = lib.mkOption {
+      description = "Bookmarks to add to homepage. The structure is <CATEGORY>.<NAME>.{SETTINGS}";
+      type = lib.types.attrsOf (
+        lib.types.attrsOf (
+          lib.types.submodule {
+            options = {
+              description = lib.mkOption {
+                description = "Description of the link";
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+              };
+              href = lib.mkOption {
+                description = "Link for the bookmark";
+                type = lib.types.str;
+              };
+              icon = lib.mkOption {
+                description = "Path to an icon image";
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+              };
+            };
+          }
+        )
+      );
+      default = { };
+    };
   };
   imports = [ self.nixosModules.cluster ];
   config = lib.mkIf cfg.enable {
+    homelab.homepage.assets."background.${lib.last (lib.split "." "${cfg.backgroundImage}")}" =
+      cfg.backgroundImage;
     homelab.homepage.services.Media = {
       sort = lib.mkDefault 50;
       layout = lib.mkDefault {
@@ -142,7 +198,11 @@ in
         metadata.namespace = "homepage";
         data = {
           "kubernetes.yaml" = builtins.toJSON { mode = "cluster"; };
-          "bookmarks.yaml" = builtins.toJSON [ ];
+          "bookmarks.yaml" = builtins.toJSON (
+            lib.mapAttrsToList (category: contents: {
+              "${category}" = lib.mapAttrsToList (name: settings: { "${name}" = [ settings ]; }) contents;
+            }) cfg.bookmarks
+          );
           "services.yaml" = builtins.toJSON (
             map (
               { name, value }:
@@ -177,7 +237,7 @@ in
           "docker.yaml" = "";
           "settings.yaml" = builtins.toJSON {
             disableUpdateCheck = true;
-            background = "/images/background.png";
+            background = "/assets/background.${lib.last (lib.split "." "${cfg.backgroundImage}")}";
             cardBlur = "xs";
             layout = map (
               { name, value }:
@@ -269,17 +329,12 @@ in
               // {
                 "/app/.next/server/pages" = "pages";
                 "/app/config/logs" = "logs";
-                "/app/public/images/background.png" = "background-image";
               };
           };
           podSpecMacro.volumesByName = {
             config.configMap.name = "homepage";
             logs.emptyDir = { };
             pages.emptyDir = { };
-            background-image = {
-              hostPath.path = backgroundImage;
-              hostPath.type = "File";
-            };
           };
         };
       };
