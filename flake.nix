@@ -57,6 +57,7 @@
         flake = {
           lib = {
             importsApply = map (path: importApply path { inherit self inputs; });
+            homepage = import ./nix/lib/homepage.nix { inherit lib; };
             ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };
             k8s = import ./nix/lib/k8s.nix { inherit lib; };
             setup-secrets = import ./nix/lib/setup-secrets.nix { inherit lib; };

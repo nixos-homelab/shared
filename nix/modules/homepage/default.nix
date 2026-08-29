@@ -56,11 +56,19 @@ let
   };
   toSortedList =
     attrs:
-    (lib.sortOn ({ name, value }: if (lib.hasAttr "sort" value) then value.sort else 100) (
-      lib.filter ({ name, value }: if (lib.hasAttr "show" value) then value.show else true) (
-        lib.attrsToList attrs
+    map
+      (
+        elem:
+        lib.removeAttrs elem [
+          "enable"
+          "sort"
+        ]
       )
-    ));
+      (
+        lib.sortOn ({ name, value }: value.sort) (
+          lib.filter ({ name, value }: value.enable) (lib.attrsToList attrs)
+        )
+      );
 in
 {
   # https://github.com/hercules-ci/flake-parts/pull/251
@@ -98,23 +106,70 @@ in
       default = { };
     };
     widgets = lib.mkOption {
-      description = "Widgets to add to homepage";
-      type = lib.types.attrsOf lib.types.anything;
-      default = { };
-    };
-    services = lib.mkOption {
-      description = "Services to add to homepage";
+      description = "Information widgets to add to homepage, <TYPE> -> <SETTINGS>";
       type = lib.types.attrsOf (
-        lib.types.attrsOf (lib.types.either (lib.types.int) (lib.types.attrsOf lib.types.anything))
+        lib.types.submodule {
+          options = {
+            enable = lib.mkEnableOption "the widget";
+            sort = lib.mkOption {
+              description = "Sorting key of the widget";
+              type = lib.types.int;
+              default = 100;
+            };
+            settings = lib.mkOption {
+              description = "Widget settings";
+              type = lib.types.attrsOf lib.types.anything;
+              default = { };
+            };
+          };
+        }
       );
       default = { };
     };
-    bookmarks = lib.mkOption {
-      description = "Bookmarks to add to homepage. The structure is <CATEGORY>.<NAME>.{SETTINGS}";
+    services = lib.mkOption {
+      description = "Services to add to homepage. The structure is <SECTION>.<NAME>.{SETTINGS}";
       type = lib.types.attrsOf (
         lib.types.attrsOf (
           lib.types.submodule {
             options = {
+              enable = lib.mkEnableOption "the service";
+              sort = lib.mkOption {
+                description = "Sorting key of the service";
+                type = lib.types.int;
+                default = 100;
+              };
+              description = lib.mkOption {
+                description = "Description of the service";
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+              };
+              href = lib.mkOption {
+                description = "Link to the service";
+                type = lib.types.str;
+              };
+              icon = lib.mkOption {
+                description = "Reference to an icon";
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+              };
+              widgets = lib.mkOption {
+                description = "Widget configurations";
+                type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
+                default = [ ];
+              };
+            };
+          }
+        )
+      );
+      default = { };
+    };
+    bookmarks = lib.mkOption {
+      description = "Bookmarks to add to homepage. The structure is <SECTION>.<NAME>.{SETTINGS}";
+      type = lib.types.attrsOf (
+        lib.types.attrsOf (
+          lib.types.submodule {
+            options = {
+              enable = lib.mkEnableOption "the bookmark";
               description = lib.mkOption {
                 description = "Description of the link";
                 type = lib.types.nullOr lib.types.str;
@@ -125,7 +180,7 @@ in
                 type = lib.types.str;
               };
               icon = lib.mkOption {
-                description = "Path to an icon image";
+                description = "Reference to an icon";
                 type = lib.types.nullOr lib.types.str;
                 default = null;
               };
@@ -140,54 +195,6 @@ in
   config = lib.mkIf cfg.enable {
     homelab.homepage.assets."background.${lib.last (lib.split "." "${cfg.backgroundImage}")}" =
       cfg.backgroundImage;
-    homelab.homepage.services.Media = {
-      sort = lib.mkDefault 50;
-      layout = lib.mkDefault {
-        header = false;
-        style = "row";
-        columns = 3;
-      };
-    };
-    homelab.homepage.services.Managers = {
-      sort = lib.mkDefault 100;
-      layout = lib.mkDefault {
-        header = false;
-        style = "row";
-        columns = 3;
-      };
-    };
-    homelab.homepage.services.Download = {
-      sort = lib.mkDefault 150;
-      layout = lib.mkDefault {
-        header = false;
-        style = "row";
-        columns = 3;
-      };
-    };
-    homelab.homepage.services.Finance = {
-      sort = lib.mkDefault 150;
-      layout = lib.mkDefault {
-        header = false;
-        style = "row";
-        columns = 3;
-      };
-    };
-    homelab.homepage.services.Monitoring = {
-      sort = lib.mkDefault 150;
-      layout = lib.mkDefault {
-        header = false;
-        style = "row";
-        columns = 3;
-      };
-    };
-    homelab.homepage.services.Networking = {
-      sort = lib.mkDefault 150;
-      layout = lib.mkDefault {
-        header = false;
-        style = "row";
-        columns = 3;
-      };
-    };
     services.k3s.images = [ image ];
     services.k3s.manifests.homepage-static.source = ./homepage.yaml;
     kubetree.resources.homepage = {
@@ -200,37 +207,21 @@ in
           "kubernetes.yaml" = builtins.toJSON { mode = "cluster"; };
           "bookmarks.yaml" = builtins.toJSON (
             lib.mapAttrsToList (category: contents: {
-              "${category}" = lib.mapAttrsToList (name: settings: { "${name}" = [ settings ]; }) contents;
+              "${category}" = map ({ name, value }: { "${name}" = [ value ]; }) (toSortedList contents);
             }) cfg.bookmarks
           );
           "services.yaml" = builtins.toJSON (
-            map (
-              { name, value }:
-              {
-                ${name} =
-                  map
-                    (
-                      { name, value }:
-                      {
-                        ${name} = lib.removeAttrs value [ "sort" ];
-                      }
-                    )
-                    (
-                      toSortedList (
-                        lib.removeAttrs value [
-                          "sort"
-                          "layout"
-                        ]
-                      )
-                    );
-              }
-            ) (toSortedList cfg.services)
+            lib.mapAttrsToList (category: contents: {
+              "${category}" = map ({ name, value }: {
+                ${name} = value;
+              }) (toSortedList contents);
+            }) cfg.services
           );
           "widgets.yaml" = builtins.toJSON (
             map (
               { name, value }:
               {
-                ${name} = lib.removeAttrs value [ "sort" ];
+                ${name} = value.settings;
               }
             ) (toSortedList cfg.widgets)
           );
@@ -242,9 +233,13 @@ in
             layout = map (
               { name, value }:
               {
-                ${name} = value.layout or { };
+                ${name} =
+                  if value ? layout then
+                    (lib.removeAttrs value.layout [ "additionalSettings" ]) // value.layout.additionalSettings or { }
+                  else
+                    { };
               }
-            ) (toSortedList cfg.services);
+            ) (toSortedList cfg.sections);
           };
           "proxmox.yaml" = "";
           "custom.css" = "";
