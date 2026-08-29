@@ -140,6 +140,7 @@ rec {
           apiVersion = "cluster.local";
           kind = "GatewayMacro";
           spec.port = ingressPort;
+          spec.rules = dotPath "spec.httpRouteRules" [ ];
         })
       );
     };
@@ -339,7 +340,7 @@ rec {
               }
             ];
             hostnames = [ hostname ];
-            rules = [
+            rules = (dotPath "spec.rules" [ ]) ++ [
               (
                 {
                   matches = [
