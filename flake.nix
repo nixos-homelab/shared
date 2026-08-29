@@ -61,6 +61,7 @@
             ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };
             k8s = import ./nix/lib/k8s.nix { inherit lib; };
             setup-secrets = import ./nix/lib/setup-secrets.nix { inherit lib; };
+            workload-macros = import ./nix/lib/workload-macros.nix { inherit lib; };
           };
           nixosModules = {
             cert-manager = importApply ./nix/modules/cert-manager { inherit self inputs; };
