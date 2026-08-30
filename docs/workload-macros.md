@@ -95,7 +95,7 @@ down by default (`allowPrivilegeEscalation = false`, read-only root
 filesystem, all capabilities dropped except `addCapabilities`, plus
 `NET_BIND_SERVICE` if any ports are declared). `securityContext`
 (`runAsUser`/`runAsGroup`/`fsGroup`/`supplementalGroups`) comes from
-`kubetree.workloadMacros.securityContext` unless overridden.
+`kubetree.workload-macros.securityContext` unless overridden.
 
 `initContainersByName` and `volumesByName` work the same as on a real pod
 spec (see [kubetree's Kubernetes primitives
@@ -122,9 +122,9 @@ kubetree.resources.node-exporter.service = {
 ## GatewayMacro
 
 Exposes `spec.port` externally at
-`<subdomain-or-name>.<kubetree.workloadMacros.domain>` (or just the bare
+`<subdomain-or-name>.<kubetree.workload-macros.domain>` (or just the bare
 domain if `spec.subdomain = null;`). Expands into a `Gateway` (HTTPS with
-TLS terminated via `kubetree.workloadMacros.acmeProvider`, plus a
+TLS terminated via `kubetree.workload-macros.acmeProvider`, plus a
 cleartext HTTP listener) and two `HTTPRoute`s: one forwarding HTTPS
 traffic to `spec.port`, and one redirecting the cleartext listener to
 HTTPS. Only the fields listed here are accepted -- unlike the other
@@ -149,7 +149,7 @@ route as a `RequestHeaderModifier` filter.
 
 Runs `spec.script` as a one-off Kubernetes Job. Expands into a `ConfigMap`
 holding the script and a `JobMacro` that mounts and runs it with
-`kubetree.workloadMacros.containerUtils`; the mount path is derived from a
+`kubetree.workload-macros.containerUtils`; the mount path is derived from a
 hash of the script's content, so the Job re-runs whenever the script
 changes.
 

@@ -9,6 +9,10 @@ let
   users = lib.filterAttrs (user: spec: spec.enable && spec.isNormalUser) config.users.users;
 in
 {
+  key = "${toString __curPos.file}#modules.nixos.smb";
+  options.homelab.smb = {
+    enable = lib.mkEnableOption "default Samba filesharing configuration";
+  };
   imports = [ inputs.setup-secrets.nixosModules.default ];
   config = {
     services.samba = {

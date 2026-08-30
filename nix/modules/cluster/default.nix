@@ -109,7 +109,7 @@ in
     services.k3s.enable = true;
     kubetree = {
       kubernetes.enable = true;
-      workloadMacros = {
+      workload-macros = {
         enable = true;
         domain = ccfg.domain;
       };
