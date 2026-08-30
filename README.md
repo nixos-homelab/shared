@@ -1,4 +1,4 @@
-# nixos-homelab
+# nixos-homelab-shared
 
 Every other `nixos-homelab-*` repo takes this one as an input and
 requires its `cluster` module -- which bootstraps k3s and

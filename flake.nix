@@ -79,28 +79,37 @@
         };
         perSystem =
           { pkgs, system, ... }:
-          let
-            lib-docs = inputs.docs.lib.docs.lib {
-              inherit pkgs;
-              paths.lib = ./nix/lib;
-            };
-            options-docs = inputs.docs.lib.docs.options {
-              inherit pkgs;
-              modules = lib.attrValues self.nixosModules;
-              repoPath = toString self;
-              repoLinkPrefix = "https://github.com/nixos-homelab/shared/blob/main";
-            };
-          in
           {
-            apps.update-docs.program = inputs.docs.lib.docs.updateRepo {
-              inherit pkgs;
-              paths."docs/lib" = "${lib-docs}/lib";
-              paths."docs/options.md" = options-docs.optionsCommonMark;
-            };
             packages = {
               container-utils = pkgs.callPackage ./nix/packages/container-utils { };
-              lib-docs = lib-docs;
-              options-docs = options-docs.optionsCommonMark;
+              lib-docs = inputs.docs.lib.docs.lib {
+                inherit pkgs;
+                paths.lib = ./nix/lib;
+              };
+              options-docs = inputs.docs.lib.docs.options {
+                inherit pkgs;
+                modules = lib.attrValues self.nixosModules;
+                repoPath = toString self;
+                repoLinkPrefix = "https://github.com/nixos-homelab/shared/blob/main";
+                prefixGroups = {
+                  cert-manager = [ "homelab.cert-manager" ];
+                  cluster = [ "homelab.cluster" ];
+                  k8sss = [ "homelab.k8sss" ];
+                  workload-macros = [ "kubetree.workload-macros" ];
+                  nfs-provisioner = [ "homelab.nfs-provisioner" ];
+                  postgresql = [ "homelab.postgresql" ];
+                  redis = [ "homelab.redis" ];
+                  smb = [ "homelab.smb" ];
+                  homepage = [ "homelab.homepage.sections" ];
+                };
+              };
+              manual-docs = inputs.docs.lib.mkdocs.manual {
+                inherit pkgs;
+                rootDoc = ./README.md;
+                pathMap = {
+                  workload-macros = ./nix/modules/workload-macros/README.md;
+                };
+              };
             };
           };
       }
