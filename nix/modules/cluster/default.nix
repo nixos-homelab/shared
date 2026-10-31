@@ -138,6 +138,20 @@ in
       config.services.k3s.images
       k3sConfig
     ];
+    # k3s exits without a default route or with only some of the cluster's IP families, and network-online.target can
+    # be reached before either (wait-online --any settles for a link that isn't routable yet)
+    systemd.services.k3s.serviceConfig.ExecStartPre = lib.mkIf config.networking.useNetworkd [
+      (lib.join " " (
+        [
+          "${config.systemd.package}/lib/systemd/systemd-networkd-wait-online"
+          "--any"
+          "--operational-state=routable"
+          "--timeout=120"
+        ]
+        ++ lib.optional ccfg.enableIPv4 "--ipv4"
+        ++ lib.optional ccfg.enableIPv6 "--ipv6"
+      ))
+    ];
     services.k3s = {
       images = [ flakePkgs.container-utils ];
       configPath = k3sConfig;
