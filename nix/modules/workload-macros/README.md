@@ -72,7 +72,8 @@ kubetree.resources.zfs-exporter.daemonset = {
 };
 ```
 
-`CronJobMacro` and `JobMacro` default to `restartPolicy = "OnFailure"`:
+`CronJobMacro` and `JobMacro` default to `restartPolicy = "Never"`, so a failed
+run keeps its pod and logs until the job history cleans it up:
 
 ```nix
 kubetree.resources.imap-backup.cronJob = {

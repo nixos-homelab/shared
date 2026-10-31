@@ -187,7 +187,7 @@ rec {
       apiVersion = "batch/v1";
       kind = "CronJob";
       spec = lib.recursiveUpdate {
-        jobTemplate.spec.template.podSpecMacro.restartPolicy = "OnFailure";
+        jobTemplate.spec.template.podSpecMacro.restartPolicy = "Never";
       } (inheritPodSpecMacro "jobTemplate.spec.template" resource);
     };
   transformJobMacro =
@@ -200,7 +200,7 @@ rec {
       apiVersion = "batch/v1";
       kind = "Job";
       spec = lib.recursiveUpdate {
-        template.podSpecMacro.restartPolicy = "OnFailure";
+        template.podSpecMacro.restartPolicy = "Never";
       } (inheritPodSpecMacro "template" resource);
     };
   transformPodSpecMacro =
