@@ -8,6 +8,30 @@
 let
   cfg = config.homelab.nfs-provisioner;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
+  # The chart and the provisioner from the same commit of main: 4.0.18 has a broken helm chart, and the only published
+  # image, v4.0.2, ignores the chart's NFS_DEFAULT_MODE, _UID and _GID (it creates every volume 0777)
+  src = pkgs.fetchFromGitHub {
+    repo = "nfs-subdir-external-provisioner";
+    owner = "kubernetes-sigs";
+    rev = "f4d56f8285ebab2a8f245a3983271e418c9f84e4";
+    hash = "sha256-ATu6cw+Bckn585OMbE7HM6KoZah2MNU2J0g4xDxlbRw=";
+  };
+  provisioner = pkgs.buildGo126Module {
+    pname = "nfs-subdir-external-provisioner";
+    version = "4.0.18-unstable-${builtins.substring 0 7 src.rev}";
+    inherit src;
+    # Its vendor/ is stale against go.mod (upstream builds with -mod=mod)
+    deleteVendor = true;
+    vendorHash = "sha256-REoG9isT4P8RoPLcg59Z0t56m6PbOrb6cdo15SRgBCg=";
+    subPackages = [ "cmd/nfs-subdir-external-provisioner" ];
+    env.CGO_ENABLED = 0;
+    meta.mainProgram = "nfs-subdir-external-provisioner";
+  };
+  image = pkgs.dockerTools.buildImage {
+    name = "cluster.local/nfs-subdir-external-provisioner";
+    copyToRoot = [ provisioner ];
+    config.Entrypoint = [ (lib.getExe provisioner) ];
+  };
 in
 {
   options.homelab.nfs-provisioner = {
@@ -31,7 +55,7 @@ in
       mode = lib.mkOption {
         description = "Filesystem mode to create the mountpoint with";
         type = lib.types.str;
-        default = "777";
+        default = "750";
       };
       uid = lib.mkOption {
         description = "UID ownership of the mountpoint";
@@ -75,21 +99,22 @@ in
     kubetree.resources.nfs-provisioner.namespace = self.lib.k8s.createNamespace {
       namespace = "nfs-provisioner";
     };
+    services.k3s.images = [ image ];
     services.k3s.manifests = {
       nfs-provisioner-helm.source =
         self.lib.k8s.patchManifest { inherit pkgs; }
           (kubelib.buildHelmChart {
             name = "nfs-subdir-external-provisioner";
             namespace = "nfs-provisioner";
-            chart = pkgs.fetchFromGitHub {
-              # 4.0.18 has a broken helm chart
-              repo = "nfs-subdir-external-provisioner";
-              owner = "kubernetes-sigs";
-              rev = "f4d56f8285ebab2a8f245a3983271e418c9f84e4";
-              rootDir = "charts/nfs-subdir-external-provisioner";
-              hash = "sha256-TUhR+si3/branwUj9t0MnXwWhm+sXX7GJzuckHhJKmc=";
-            };
+            chart = "${src}/charts/nfs-subdir-external-provisioner";
             values = {
+              image = {
+                repository = image.buildArgs.name;
+                tag = image.imageTag;
+              };
+              # Main's go.mod has a client-go without the endpoints lock its provisioner library elects a leader with
+              # ("endpoints lock is removed, migrate to leases"). One replica, recreated, needs no leader
+              leaderElection.enabled = false;
               nfs = {
                 server = cfg.server;
                 path = cfg.path;
