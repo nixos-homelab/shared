@@ -152,7 +152,12 @@ in
         ++ lib.optional ccfg.enableIPv6 "--ipv6"
       ))
     ];
+    # Container scopes have no shutdown dependencies, so systemd only kills them at the very end, after services
+    # they use (the NFS server) are gone. The kubelet stops the pods first when it gets logind's shutdown signal, and
+    # logind only waits InhibitDelayMaxSec for it (5 s by default) of the 30 s shutdownGracePeriod
+    services.logind.settings.Login.InhibitDelayMaxSec = 45;
     services.k3s = {
+      gracefulNodeShutdown.enable = true;
       images = [ flakePkgs.container-utils ];
       configPath = k3sConfig;
       disable = [
