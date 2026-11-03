@@ -10,6 +10,40 @@ let
   flakePkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
   ipv4 = self.lib.ipv4;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
+  node = config.networking.hostName;
+  drainedAnnotation = "cluster.local/drained-for-shutdown";
+  kubectl = "${lib.getExe config.services.k3s.package} kubectl --request-timeout=10s";
+  drain = pkgs.writeShellApplication {
+    name = "k3s-drain";
+    runtimeInputs = [
+      config.systemd.package
+      pkgs.coreutils
+    ];
+    text = ''
+      # Only logind's own signal: any client on the bus may emit one
+      while :; do
+        signal=$(busctl wait org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager PrepareForShutdown)
+        [[ $signal = "b true" ]] && break
+      done
+      # A node cordoned by hand stays cordoned after the boot
+      if [[ $(${kubectl} get node ${node} -o jsonpath='{.spec.unschedulable}') != true ]]; then
+        ${kubectl} annotate node ${node} ${drainedAnnotation}=true --overwrite
+      fi
+      timeout 40 ${kubectl} drain ${node} --ignore-daemonsets --delete-emptydir-data --force --timeout=35s || true
+    '';
+  };
+  uncordon = pkgs.writeShellApplication {
+    name = "k3s-uncordon";
+    text = ''
+      drained=$(${kubectl} get node ${node} -o jsonpath='{.metadata.annotations.${
+        lib.replaceStrings [ "." ] [ "\\." ] drainedAnnotation
+      }}')
+      if [[ $drained = true ]]; then
+        ${kubectl} uncordon ${node}
+        ${kubectl} annotate node ${node} ${drainedAnnotation}-
+      fi
+    '';
+  };
   k3sConfig = kubelib.toYAMLFile ({
     data-dir = ccfg.dataDir;
     flannel-backend = "none";
@@ -156,6 +190,36 @@ in
     # they use (the NFS server) are gone. The kubelet stops the pods first when it gets logind's shutdown signal, and
     # logind only waits InhibitDelayMaxSec for it (5 s by default) of the 30 s shutdownGracePeriod
     services.logind.settings.Login.InhibitDelayMaxSec = 45;
+    # The kubelet's shutdown marks the pods it stops as Failed, rejects (as Failed) the replacements that tolerate a
+    # NotReady node, and leaves them all behind (https://github.com/kubernetes/kubernetes/issues/139246). Draining
+    # first deletes them and keeps the replacements Pending, cordoned, until the node is back. It holds its own delay
+    # lock from logind's PrepareForShutdown on; the kubelet's shutdown stays as the backstop for DaemonSet pods
+    systemd.services.k3s-drain = {
+      description = "Drain the node when it shuts down";
+      after = [ "k3s.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig.ExecStart = lib.join " " [
+        "${config.systemd.package}/bin/systemd-inhibit"
+        "--what=shutdown"
+        "--mode=delay"
+        "--who=k3s-drain"
+        "--why='Drain the node'"
+        (lib.getExe drain)
+      ];
+    };
+    # Lifts the drain's cordon once the API is up, not one set by hand
+    systemd.services.k3s-uncordon = {
+      description = "Uncordon the node after a drain at shutdown";
+      after = [ "k3s.service" ];
+      wantedBy = [ "multi-user.target" ];
+      startLimitIntervalSec = 0;
+      serviceConfig = {
+        Type = "oneshot";
+        Restart = "on-failure";
+        RestartSec = 10;
+        ExecStart = lib.getExe uncordon;
+      };
+    };
     services.k3s = {
       gracefulNodeShutdown.enable = true;
       images = [ flakePkgs.container-utils ];
