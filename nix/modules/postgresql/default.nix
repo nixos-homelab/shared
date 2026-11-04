@@ -1,4 +1,4 @@
-{ ... }:
+{ inputs, self, ... }:
 {
   lib,
   pkgs,
@@ -9,6 +9,13 @@ let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.postgresql;
   dbBackups = lib.filterAttrs (serviceName: spec: spec.backup.enable) cfg.databases;
+  passwordSource = username: "POSTGRESQL_PASSWORD_${lib.toUpper username}";
+  passwordRef = username: {
+    valueFrom.secretKeyRef = {
+      name = "${username}-password";
+      key = "password";
+    };
+  };
   entrypoint = pkgs.stdenvNoCC.mkDerivation {
     name = "docker-entrypoint";
     phases = [ "installPhase" ];
@@ -83,12 +90,6 @@ in
                 defaultText = "`<dbName>`";
                 default = module.config.dbName;
               };
-              password = lib.mkOption {
-                description = "Password for the user";
-                type = lib.types.nullOr lib.types.str;
-                defaultText = "`username`";
-                default = module.config.username;
-              };
               backup = {
                 enable = lib.mkEnableOption "backup of the database";
                 schedule = lib.mkOption {
@@ -130,8 +131,43 @@ in
       default = [ ];
     };
   };
+  imports = [ inputs.setup-secrets.nixosModules.default ];
   config = lib.mkIf cfg.enable {
     services.k3s.images = [ image ];
+    # A password is generated only when its Secret is missing, never when the API call fails
+    setup-secrets.sources = lib.listToAttrs (
+      map (
+        username:
+        lib.nameValuePair (passwordSource username) {
+          description = "PostgreSQL password of ${username}";
+          cmd = self.lib.setup-secrets.mkScript pkgs ''
+            if [[ -n $(kubectl -n postgresql get secret ${username}-password --ignore-not-found -oname) ]]; then
+              getKubeSecret postgresql ${username}-password password
+            else
+              head -c 1024 /dev/urandom | tr -dc A-Za-z0-9 | head -c 32
+            fi
+          '';
+        }
+      ) ([ "postgres" ] ++ lib.mapAttrsToList (serviceName: spec: spec.username) cfg.databases)
+    );
+    # The consumer reads its password from a Secret in its own namespace, named after the serviceName
+    setup-secrets.destinations = [
+      {
+        logPrefix = "PostgreSQL password of postgres";
+        requires = [ (passwordSource "postgres") ];
+        cmd = self.lib.setup-secrets.mkScript pkgs ''
+          setKubeSecret postgresql postgres-password password "''${${passwordSource "postgres"}:?}"
+        '';
+      }
+    ]
+    ++ lib.mapAttrsToList (serviceName: spec: {
+      logPrefix = "PostgreSQL password of ${spec.username}";
+      requires = [ (passwordSource spec.username) ];
+      cmd = self.lib.setup-secrets.mkScript pkgs ''
+        setKubeSecret postgresql ${spec.username}-password password "''${${passwordSource spec.username}:?}"
+        setKubeSecret ${serviceName} postgresql-password password "''${${passwordSource spec.username}:?}"
+      '';
+    }) cfg.databases;
     homelab.cluster.backup.volumes.postgresql.database-dumps = lib.mapAttrsToList (
       serviceName: spec: "/${spec.dbName}.pgdump"
     ) dbBackups;
@@ -158,7 +194,20 @@ in
               image = "${image.buildArgs.name}:${image.imageTag}";
               imagePullPolicy = "Never";
               lifecycle.stopSignal = "SIGINT";
-              envByName.POSTGRES_PASSWORD = "postgres";
+              # POSTGRES_PASSWORD only applies at initdb, so the Secret's password is set on every start too.
+              # The temporary server initdb starts takes it as well, and the loop outlasts its shutdown.
+              lifecycle.postStart.exec.command = [
+                "bash"
+                "-c"
+                ''
+                  until psql --no-psqlrc -qh /run/postgresql -U postgres -v ON_ERROR_STOP=1 >/dev/null <<'EOF'
+                  \getenv pw POSTGRES_PASSWORD
+                  ALTER USER postgres PASSWORD :'pw'
+                  EOF
+                  do sleep 1; done
+                ''
+              ];
+              envByName.POSTGRES_PASSWORD = passwordRef "postgres";
               envByName.POSTGRES_INITDB_ARGS = "-c include='/etc/postgresql/postgresql.conf'";
               portsByName.postgresql = 5432;
               volumeMountsByPath = {
@@ -204,7 +253,8 @@ in
                 args = [
                   (lib.join "\n" (
                     map (cmd: ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -f <(printf "%s" "${cmd}")'') ([
-                      "SELECT E'CREATE USER ${spec.username} WITH PASSWORD \\'${spec.password}\\'' WHERE NOT EXISTS (SELECT FROM pg_user WHERE usename = '${spec.username}')\\gexec"
+                      "SELECT 'CREATE USER ${spec.username}' WHERE NOT EXISTS (SELECT FROM pg_user WHERE usename = '${spec.username}')\\gexec"
+                      "\\getenv pw USER_PASSWORD\nALTER USER ${spec.username} PASSWORD :'pw'"
                       "SELECT 'CREATE DATABASE ${spec.dbName}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${spec.dbName}')\\gexec"
                       "ALTER DATABASE ${spec.dbName} OWNER TO ${spec.username}"
                     ])
@@ -217,7 +267,8 @@ in
                 envByName = {
                   PGHOST = "postgresql.postgresql";
                   PGUSER = "postgres";
-                  PGPASSWORD = "postgres";
+                  PGPASSWORD = passwordRef "postgres";
+                  USER_PASSWORD = passwordRef spec.username;
                 };
               };
             };
@@ -253,7 +304,7 @@ in
                 envByName = {
                   PGHOST = "postgresql.postgresql";
                   PGUSER = "postgres";
-                  PGPASSWORD = "postgres";
+                  PGPASSWORD = passwordRef "postgres";
                 };
                 volumeMountsByPath."/dumps" = "data";
               };
