@@ -178,8 +178,12 @@ in
         kind = "ConfigMap";
         metadata.name = "postgresql";
         metadata.namespace = "postgresql";
+        # The include in POSTGRES_INITDB_ARGS fails initdb's probes, which then fall back to 20 connections and
+        # 400kB of buffers; it comes after them in postgresql.conf, so these are what initdb picks otherwise
         data."postgresql.conf" = ''
           listen_addresses = '*'
+          max_connections = 100
+          shared_buffers = 128MB
           ${cfg.extraSettings}
         '';
       };
