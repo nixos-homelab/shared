@@ -168,6 +168,7 @@ in
     # https://github.com/cilium/cilium/issues/31565#issuecomment-3419710315
     networking.firewall.checkReversePath = false;
     networking.firewall.allowedTCPPorts = [ 6443 ];
+    systemd.services.k3s.unitConfig.RequiresMountsFor = [ ccfg.dataDir ];
     systemd.services.k3s.restartTriggers = [
       config.services.k3s.images
       k3sConfig

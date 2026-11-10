@@ -10,6 +10,25 @@ let
   cfg = config.homelab.cert-manager;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   charts = inputs.nixhelm.charts { inherit pkgs; };
+  # The chart's images, preloaded from images.lock
+  certManager = self.lib.images.chart pkgs ./images.lock (
+    kubelib.buildHelmChart {
+      name = "cert-manager";
+      namespace = "cert-manager";
+      chart = charts.jetstack.cert-manager;
+      values = {
+        crds.enabled = true;
+        config.enableGatewayAPI = true;
+        podLabels = {
+          "cluster.local/apiserver-egress" = "allow";
+          "cluster.local/internet-egress" = "allow";
+        };
+        webhook.podLabels."cluster.local/apiserver-egress" = "allow";
+        cainjector.podLabels."cluster.local/apiserver-egress" = "allow";
+        startupapicheck.podLabels."cluster.local/apiserver-egress" = "allow";
+      };
+    }
+  );
   webhook = pkgs.buildGo126Module rec {
     name = "cert-manager-webhook-libdns";
     version = "1.1.1-inwx-fix";
@@ -63,24 +82,9 @@ in
     };
   };
   config = {
-    services.k3s.images = [ webhookImage ];
+    services.k3s.images = [ webhookImage ] ++ certManager.images;
     services.k3s.manifests = {
-      cert-manager-helm.source = kubelib.buildHelmChart {
-        name = "cert-manager";
-        namespace = "cert-manager";
-        chart = charts.jetstack.cert-manager;
-        values = {
-          crds.enabled = true;
-          config.enableGatewayAPI = true;
-          podLabels = {
-            "cluster.local/apiserver-egress" = "allow";
-            "cluster.local/internet-egress" = "allow";
-          };
-          webhook.podLabels."cluster.local/apiserver-egress" = "allow";
-          cainjector.podLabels."cluster.local/apiserver-egress" = "allow";
-          startupapicheck.podLabels."cluster.local/apiserver-egress" = "allow";
-        };
-      };
+      cert-manager-helm.source = certManager.manifest;
       cert-manager-webhook-libdns-static.source = ./cert-manager-webhook-libdns.yaml;
     };
     kubetree.resources = {
