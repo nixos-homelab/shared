@@ -96,7 +96,7 @@ in
       default = pkgs.fetchurl {
         name = "backgroundImage.png";
         url = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
-        hash = "sha256-M82+Wrub9yZ0V7EA0Sn8gPXEOybPXaa2bJaGm0hqxjc=";
+        hash = "sha256-n5yfw+QWKChwPm5McB2csOWR+UOB0HFK4JSWj8xWEEc=";
       };
       defaultText = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
     };
