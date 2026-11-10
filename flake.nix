@@ -58,6 +58,7 @@
           lib = {
             importsApply = map (path: importApply path { inherit self inputs; });
             homepage = import ./nix/lib/homepage.nix { inherit lib; };
+            images = import ./nix/lib/images.nix { inherit lib; };
             ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };
             k8s = import ./nix/lib/k8s.nix { inherit lib; };
             setup-secrets = import ./nix/lib/setup-secrets.nix { inherit lib; };
@@ -82,6 +83,7 @@
           {
             packages = {
               container-utils = pkgs.callPackage ./nix/packages/container-utils { };
+              lock-images = pkgs.callPackage ./nix/packages/lock-images { };
               lib-docs = inputs.docs.lib.docs.lib {
                 inherit pkgs;
                 paths.lib = ./nix/lib;

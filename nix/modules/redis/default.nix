@@ -1,11 +1,13 @@
-{ ... }:
+{ self, ... }:
 {
   lib,
   config,
+  pkgs,
   ...
 }:
 let
   cfg = config.homelab.redis;
+  image = (self.lib.images.pinned pkgs ./Dockerfile).redis;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.redis";
@@ -49,6 +51,7 @@ in
         }
       )
     ];
+    services.k3s.images = [ image ];
     homelab.cluster.backup.volumes.redis.redis = [ "/dump.rdb" ];
     kubetree.resources.redis = {
       workload = {
@@ -59,7 +62,8 @@ in
           dataPath = "/data";
           podSpecMacro = {
             mainContainer = {
-              image = "redis:8.4";
+              image = "${image.imageName}:${image.imageTag}";
+              imagePullPolicy = "Never";
               portsByName.redis = 6379;
               livenessProbe.tcpSocket.port = "redis";
               readinessProbe.tcpSocket.port = "redis";

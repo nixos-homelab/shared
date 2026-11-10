@@ -1,0 +1,9 @@
+version: 2
+updates:
+- package-ecosystem: docker
+  # The Dockerfiles only pin upstream images for lib.images.pinned, which
+  # reads their hashes from the images.lock next to them
+  directories:
+  - /nix/modules/*
+  schedule:
+    interval: weekly

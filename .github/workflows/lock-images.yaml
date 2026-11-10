@@ -1,0 +1,33 @@
+name: Lock images
+
+# Dependabot bumps the FROM lines of the Dockerfiles that lib.images.pinned
+# reads; this commits the matching images.lock to its branch
+on:
+  pull_request:
+    paths: ['**/Dockerfile']
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.head_ref }}
+    - name: Install Nix
+      uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      with:
+        extra_nix_config: experimental-features = nix-command flakes
+    - name: Lock the images
+      run: nix run .#lock-images
+    - name: Commit the locks
+      run: |
+        git diff --quiet && exit
+        git config user.name 'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        git commit -am 'images: Lock the bumped images'
+        git push
