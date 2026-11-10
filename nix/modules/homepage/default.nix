@@ -8,6 +8,8 @@
 let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.homepage;
+  # Attribute names can't carry the store path's string context
+  backgroundAsset = "background.${builtins.unsafeDiscardStringContext (lib.last (lib.splitString "." "${cfg.backgroundImage}"))}";
   assets = pkgs.stdenvNoCC.mkDerivation {
     name = "assets";
     phases = [ "installPhase" ];
@@ -92,13 +94,10 @@ in
     };
     backgroundImage = lib.mkOption {
       description = "Background image";
-      type = lib.types.package;
-      default = pkgs.fetchurl {
-        name = "backgroundImage.png";
-        url = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
-        hash = "sha256-n5yfw+QWKChwPm5McB2csOWR+UOB0HFK4JSWj8xWEEc=";
-      };
-      defaultText = "https://images.unsplash.com/photo-1502790671504-542ad42d5189?auto=format&fit=crop&w=2560&q=80";
+      type = lib.types.path;
+      # NPS photo of Death Valley (2019-04-27), public domain: https://commons.wikimedia.org/wiki/File:An_International_Dark_Sky_Park,_Death_Valley_National_Park_has_some_of_the_best_night_sky_viewing_in_the_country._(cc311a3f-fea8-4835-b3a5-f6a2b877e5f4).jpg
+      default = ./background.jpg;
+      defaultText = lib.literalExpression "./background.jpg";
     };
     assets = lib.mkOption {
       description = "Assets to embed in the homepage image, <EMBEDDED-NAME> -> <PATH>";
@@ -193,8 +192,7 @@ in
   };
   imports = [ self.nixosModules.cluster ];
   config = lib.mkIf cfg.enable {
-    homelab.homepage.assets."background.${lib.last (lib.split "." "${cfg.backgroundImage}")}" =
-      cfg.backgroundImage;
+    homelab.homepage.assets.${backgroundAsset} = cfg.backgroundImage;
     services.k3s.images = [ image ];
     services.k3s.manifests.homepage-static.source = ./homepage.yaml;
     kubetree.resources.homepage = {
@@ -228,7 +226,7 @@ in
           "docker.yaml" = "";
           "settings.yaml" = builtins.toJSON {
             disableUpdateCheck = true;
-            background = "/assets/background.${lib.last (lib.split "." "${cfg.backgroundImage}")}";
+            background = "/assets/${backgroundAsset}";
             cardBlur = "xs";
             layout = map (
               { name, value }:
