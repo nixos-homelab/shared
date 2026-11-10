@@ -95,7 +95,8 @@ in
     backgroundImage = lib.mkOption {
       description = "Background image";
       type = lib.types.path;
-      # NPS photo of Death Valley (2019-04-27), public domain: https://commons.wikimedia.org/wiki/File:An_International_Dark_Sky_Park,_Death_Valley_National_Park_has_some_of_the_best_night_sky_viewing_in_the_country._(cc311a3f-fea8-4835-b3a5-f6a2b877e5f4).jpg
+      # "Stars over the Dunes and Mount Herard" by NPS/Patrick Myers, public domain:
+      # https://commons.wikimedia.org/wiki/File:Stars_over_the_Dunes_and_Mount_Herard_(52548424900).jpg
       default = ./background.jpg;
       defaultText = lib.literalExpression "./background.jpg";
     };
