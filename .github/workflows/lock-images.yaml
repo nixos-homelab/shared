@@ -6,8 +6,10 @@ on:
   pull_request:
     paths: ['**/Dockerfile']
 
+# The push goes through LOCK_IMAGES_TOKEN (a PAT with contents: write), as a
+# push with GITHUB_TOKEN starts no workflow runs on the new commit
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   lock:
@@ -18,6 +20,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.head_ref }}
+        token: ${{ secrets.LOCK_IMAGES_TOKEN }}
     - name: Install Nix
       uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
       with:
