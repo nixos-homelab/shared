@@ -222,7 +222,11 @@ in
     };
     services.k3s = {
       gracefulNodeShutdown.enable = true;
-      images = [ flakePkgs.container-utils ];
+      images = [
+        flakePkgs.container-utils
+        # pause, coredns, metrics-server and the other images k3s runs itself, so nothing is pulled at runtime
+        config.services.k3s.package.airgap-images
+      ];
       configPath = k3sConfig;
       disable = [
         "runtimes"

@@ -6,7 +6,7 @@
     lines; their Nix hashes are in `images.lock` next to the Dockerfile,
     which `nix run github:nixos-homelab/shared#lock-images` updates. The
     tag gets the digest's first 12 hex digits, so a bump changes the pod
-    spec and rolls the workload.
+    spec and rolls the workload. Each archive's `ref` is its `name:tag`.
 
     # Arguments
 
@@ -23,7 +23,7 @@
     {
       services.k3s.images = [ redis ];
       # ...
-      image = "${redis.imageName}:${redis.imageTag}";
+      image = redis.ref;
       imagePullPolicy = "Never";
     }
     ```
@@ -43,14 +43,18 @@
         let
           name = lib.elemAt pin 0;
           digest = lib.elemAt pin 2;
-          ref = "${name}@${digest}";
+          key = "${name}@${digest}";
+          tag = "${lib.elemAt pin 1}-${builtins.substring 7 12 digest}";
         in
         lib.nameValuePair name (
           pkgs.dockerTools.pullImage {
             imageName = name;
             imageDigest = digest;
-            finalImageTag = "${lib.elemAt pin 1}-${builtins.substring 7 12 digest}";
-            hash = lock.${ref} or (throw "${ref} isn't in ${toString lockFile}, run lock-images");
+            finalImageTag = tag;
+            hash = lock.${key} or (throw "${key} isn't in ${toString lockFile}, run lock-images");
+          }
+          // {
+            ref = "${name}:${tag}";
           }
         );
     in

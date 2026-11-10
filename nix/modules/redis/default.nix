@@ -62,7 +62,7 @@ in
           dataPath = "/data";
           podSpecMacro = {
             mainContainer = {
-              image = "${image.imageName}:${image.imageTag}";
+              image = image.ref;
               imagePullPolicy = "Never";
               portsByName.redis = 6379;
               livenessProbe.tcpSocket.port = "redis";
