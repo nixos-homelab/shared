@@ -1,0 +1,15 @@
+name: Pins
+
+# Never runs. Dependabot's github-actions ecosystem bumps the refs below, which
+# pin sources that aren't images or flake inputs. Testing whether it does for
+# repositories without an action.yml
+on: workflow_dispatch
+
+permissions: {}
+
+jobs:
+  pins:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+    - uses: kubernetes-sigs/gateway-api@v1.5.1
