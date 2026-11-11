@@ -122,23 +122,20 @@ let
 in
 {
   # Checks what a set of NixOS modules sends to k3s, on top of a cluster with this flake's modules, without running
-  # one: every manifest against the Kubernetes schemas and those of the CRDs it uses, every container against pulling
+  # one: every manifest against the Kubernetes schemas and those of the CRDs it uses, every container against pulling.
+  # config, a whole machine's NixOS configuration, takes the place of that cluster and the modules
   manifests =
     {
       pkgs,
-      modules,
-      name ? "manifests",
-    }:
-    let
-      inherit (pkgs.stdenv.hostPlatform) system;
-      config =
+      modules ? [ ],
+      config ?
         (inputs.nixpkgs.lib.nixosSystem {
           modules =
             lib.attrValues self.nixosModules
             ++ [
               networkPolicies
               {
-                nixpkgs.hostPlatform = system;
+                nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system;
                 networking.hostName = "manifests";
                 # k8sss makes the SSH keys of wheel users step-ca admins. The private half of this one is gone
                 users.users.admin = {
@@ -172,7 +169,10 @@ in
               }
             ]
             ++ modules;
-        }).config;
+        }).config,
+      name ? "manifests",
+    }:
+    let
       pins = self.lib.pins.refs ../../.github/workflows/pins.yaml;
       pinned = self.lib.pins.locked ../../.github/pins.lock;
       # The JSON schemas of the Kubernetes version k3s runs, from the repository kubeconform reads them from by default
