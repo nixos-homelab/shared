@@ -1,5 +1,13 @@
 version: 2
 updates:
+- package-ecosystem: nix
+  directory: /
+  schedule:
+    interval: weekly
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
 - package-ecosystem: docker
   # The Dockerfiles only pin upstream images for lib.images.pinned, which
   # reads their hashes from the images.lock next to them
