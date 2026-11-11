@@ -34,7 +34,7 @@ rec {
     # Arguments
 
     `workload`: A resource with `metadata.name` and `spec.ingressPort` (see
-    [`workloadServiceHostPort`](#libintegrationworkloadservicehostport))
+    [`workloadServiceHostPort`](#libworkload-macrosworkloadservicehostport))
 
     # Example
 
