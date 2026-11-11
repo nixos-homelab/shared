@@ -158,19 +158,12 @@ main() {
     done
     jq -S . <<<"$lock" >"$(dirname "$dockerfile")/images.lock"
   done
-  # The flake's own lock files that its check names, keyed by their store path. Their refs come from what the flake
-  # pins (a chart, a module's defaults), so a flake.lock bump can change them
-  local system source locks lockfile refs
+  # The pinned sources first: what a pin fetches can name images (a release manifest)
+  local system source locks lockfile refs sources path old key hash
   system=$(nix eval --raw --impure --expr builtins.currentSystem)
   [[ $(nix eval ".#checks.$system" --apply 'checks: checks ? manifests') = true ]] || return 0
   source=$(nix flake metadata --json . | jq -r .path)
-  locks=$(nix eval --json ".#checks.$system.manifests.imageLocks")
-  for lockfile in $(jq -r --arg source "$source/" 'keys[] | select(startswith($source))' <<<"$locks"); do
-    mapfile -t refs < <(jq -r --arg lockfile "$lockfile" '.[$lockfile][]' <<<"$locks")
-    lock "${lockfile#"$source/"}" "${refs[@]}"
-  done
-  # The pinned sources: a key whose ref changed is a new key, its hash what Nix names when the fetch has none
-  local sources path old key hash
+  # A key whose ref changed is a new key, its hash what Nix names when the fetch has none
   sources=$(nix eval --json ".#checks.$system.manifests.sourceLocks" --apply 'locks: builtins.mapAttrs (_: builtins.attrNames) locks')
   for lockfile in $(jq -r --arg source "$source/" 'keys[] | select(startswith($source))' <<<"$sources"); do
     path=${lockfile#"$source/"} old='{}' lock='{}'
@@ -184,6 +177,13 @@ main() {
       lock=$(jq --arg key "$key" --arg hash "$hash" '.[$key] = $hash' <<<"$lock")
     done < <(jq -r --arg lockfile "$lockfile" '.[$lockfile][]' <<<"$sources")
     jq -S . <<<"$lock" >"$path"
+  done
+  # The flake's own lock files that its check names, keyed by their store path. Their refs come from what the flake
+  # pins (a chart, a module's defaults), so a flake.lock bump can change them
+  locks=$(nix eval --json ".#checks.$system.manifests.imageLocks")
+  for lockfile in $(jq -r --arg source "$source/" 'keys[] | select(startswith($source))' <<<"$locks"); do
+    mapfile -t refs < <(jq -r --arg lockfile "$lockfile" '.[$lockfile][]' <<<"$locks")
+    lock "${lockfile#"$source/"}" "${refs[@]}"
   done
 }
 
