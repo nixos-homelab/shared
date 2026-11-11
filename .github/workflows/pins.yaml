@@ -12,4 +12,4 @@ jobs:
     if: false
     runs-on: ubuntu-latest
     steps:
-    - uses: kubernetes-sigs/gateway-api@v1.5.1
+    - uses: kubernetes-sigs/gateway-api@v1.7.0
