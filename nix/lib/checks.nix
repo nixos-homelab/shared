@@ -210,7 +210,10 @@ in
     pkgs.runCommand "check-${name}"
       {
         # What was checked, to look at when it fails
-        passthru = { inherit manifests; };
+        passthru = {
+          inherit manifests;
+          inherit (config.homelab.cluster) imageLocks;
+        };
         nativeBuildInputs = [
           pkgs.kubeconform
           pkgs.yq-go

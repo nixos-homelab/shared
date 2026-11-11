@@ -1,10 +1,11 @@
 name: Lock images
 
 # Dependabot bumps the FROM lines of the Dockerfiles that lib.images.pinned
-# reads; this commits the matching images.lock to its branch
+# reads, and in flake.lock what names the images of lib.images.locked and
+# chart (a chart, k8sss); this commits the matching images.lock to its branch
 on:
   pull_request:
-    paths: ['**/Dockerfile']
+    paths: ['**/Dockerfile', 'flake.lock']
 
 # The push goes through LOCK_IMAGES_TOKEN (a PAT with contents: write), as a
 # push with GITHUB_TOKEN starts no workflow runs on the new commit

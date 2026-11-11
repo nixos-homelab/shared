@@ -21,6 +21,7 @@ in
     k8sss.enable = true;
     k8sss.images = lib.mapAttrs (_: image: lib.mkDefault (images.refFor image.default)) options.k8sss.images;
     services.k3s.images = images.images;
+    homelab.cluster.imageLocks.${toString ./images.lock} = refs;
     k8sss.dnsNames = [ "${config.networking.hostName}.${ccfg.domain}" ];
     kubetree.resources.k8sss = lib.mkIf config.k8sss.enable {
       netpols = {

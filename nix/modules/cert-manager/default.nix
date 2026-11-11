@@ -82,6 +82,7 @@ in
     };
   };
   config = {
+    homelab.cluster.imageLocks.${toString ./images.lock} = certManager.refs;
     services.k3s.images = [ webhookImage ] ++ certManager.images;
     services.k3s.manifests = {
       cert-manager-helm.source = certManager.manifest;

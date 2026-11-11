@@ -122,6 +122,11 @@ in
       description = "Location of the k3s data directory";
       type = lib.types.str;
     };
+    imageLocks = lib.mkOption {
+      description = "The image refs each lock file of `lib.images.locked` and `lib.images.chart` pins, by its path, for `lock-images` to re-lock them when what names them changes";
+      type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+      default = { };
+    };
     backup.hostPaths = lib.mkOption {
       description = "List of paths on the host that *should* be backed up, this option does not configure a backup, it is only meant for aggregation";
       type = lib.types.listOf lib.types.str;
