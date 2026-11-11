@@ -87,6 +87,10 @@
               modules = [
                 {
                   homelab = {
+                    homepage = {
+                      enable = true;
+                      allowEgress = [ ];
+                    };
                     k8sss.enable = true;
                     nfs-provisioner = {
                       enable = true;

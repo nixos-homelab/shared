@@ -229,6 +229,7 @@ in
             disableUpdateCheck = true;
             background = "/assets/${backgroundAsset}";
             cardBlur = "xs";
+            # The module repos declare the sections, so with none of them there are none
             layout = map (
               { name, value }:
               {
@@ -238,7 +239,7 @@ in
                   else
                     { };
               }
-            ) (toSortedList cfg.sections);
+            ) (toSortedList (cfg.sections or { }));
           };
           "proxmox.yaml" = "";
           "custom.css" = "";
