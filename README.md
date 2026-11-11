@@ -6,9 +6,9 @@ requires its `cluster` module -- which bootstraps k3s and
 provides shared services used across those repos: a database, a
 dashboard, TLS, and storage.
 
-See the [workload macros docs](docs/workload-macros.md) for the custom
+See the [workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/) for the custom
 resource kinds `kubetree.resources` accepts, and
-[docs/options.md](docs/options.md) for the full list of module options.
+[the options reference](https://nixos-homelab.github.io/shared/options/) for the full list of module options.
 
 ## Setup
 
@@ -42,7 +42,7 @@ resource kinds `kubetree.resources` accepts, and
   `homelab.cluster.*` options (pod/service CIDRs, debug tools, backup
   aggregation) every other module in this ecosystem builds on.
 - **workload-macros**: the `WorkloadMacro`/`DeploymentMacro`/etc. resource
-  kinds -- see [docs/workload-macros.md](docs/workload-macros.md).
+  kinds -- see [the workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/).
 - **homepage**: the [homepage](https://gethomepage.dev) dashboard, with a
   per-service `integrations` allow-list.
 - **cert-manager**: cert-manager plus a LibDNS ACME webhook, for
