@@ -173,32 +173,53 @@ in
             ]
             ++ modules;
         }).config;
+      pins = self.lib.pins.refs ../../.github/workflows/pins.yaml;
+      pinned = self.lib.pins.locked ../../.github/pins.lock;
       # The JSON schemas of the Kubernetes version k3s runs, from the repository kubeconform reads them from by default
-      kubernetesSchemas = pkgs.fetchFromGitHub {
-        owner = "yannh";
-        repo = "kubernetes-json-schema";
-        rev = "9367d1ce1c88b8bbf6ee06d0e80510f26394913f";
-        sparseCheckout = [ "v1.35.8-standalone-strict" ];
-        hash = "sha256-azkW81seWoWwXvyrDw6IvW8GVLEg1Az+TfUykKiXFnU=";
-      };
+      schemas = "v${lib.head (lib.splitString "+" config.services.k3s.package.version)}-standalone-strict";
+      kubernetesSchemas = pinned "kubernetes-json-schema-${schemas}" pins."yannh/kubernetes-json-schema" (
+        hash:
+        pkgs.fetchFromGitHub {
+          owner = "yannh";
+          repo = "kubernetes-json-schema";
+          rev = pins."yannh/kubernetes-json-schema";
+          sparseCheckout = [ schemas ];
+          inherit hash;
+        }
+      );
       # The Cilium operator creates its CRDs at runtime, so the manifests don't carry them
-      ciliumCRDs = pkgs.fetchFromGitHub {
-        owner = "cilium";
-        repo = "cilium";
-        rev = "v1.20.4";
-        sparseCheckout = [ "pkg/k8s/apis/cilium.io/client/crds/v2" ];
-        hash = "sha256-sTfMBPTCs4N1DBFkogJycXZPkJWO1jc+mRTjrDKt4dQ=";
-      };
+      ciliumCRDs = pinned "cilium-crds" pins."cilium/cilium" (
+        hash:
+        pkgs.fetchFromGitHub {
+          owner = "cilium";
+          repo = "cilium";
+          rev = pins."cilium/cilium";
+          sparseCheckout = [ "pkg/k8s/apis/cilium.io/client/crds/v2" ];
+          inherit hash;
+        }
+      );
       # The CRD of ClusterNetworkPolicy, which networkPolicies emits
-      clusterNetworkPolicyCRD = pkgs.fetchurl {
-        url = "https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.1/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml";
-        hash = "sha256-RsY1nBGi7NqwWx87BIjlZgkSQ6yHYyIv5VsAxbjuQ5c=";
-      };
-      # Gateway API's CRDs, which a CNI module installs (networking's cilium does, this release)
-      gatewayAPICRDs = pkgs.fetchurl {
-        url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml";
-        hash = "sha256-ZOx2YJpqyIXgQF3qecpQnCKfoBnTQvCFeqi2vci4upI=";
-      };
+      clusterNetworkPolicyCRD =
+        pinned "clusternetworkpolicy-crd" pins."kubernetes-sigs/network-policy-api"
+          (
+            hash:
+            pkgs.fetchurl {
+              url = "https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/${
+                pins."kubernetes-sigs/network-policy-api"
+              }/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml";
+              inherit hash;
+            }
+          );
+      # Gateway API's CRDs, which a CNI module installs (networking's cilium does)
+      gatewayAPICRDs = pinned "gateway-api-experimental-install" pins."kubernetes-sigs/gateway-api" (
+        hash:
+        pkgs.fetchurl {
+          url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/${
+            pins."kubernetes-sigs/gateway-api"
+          }/experimental-install.yaml";
+          inherit hash;
+        }
+      );
       manifests = config.kubetree.k3s.payload.manifests;
       # What k3s imports at start (k3s' own airgap images aside, which carry no name)
       preloaded = pkgs.writeText "preloaded-images" (
@@ -213,6 +234,16 @@ in
         passthru = {
           inherit manifests;
           inherit (config.homelab.cluster) imageLocks;
+          sourceLocks = lib.recursiveUpdate config.homelab.cluster.sourceLocks {
+            ${toString ../../.github/pins.lock} = lib.listToAttrs (
+              map (pin: lib.nameValuePair pin.key pin.unlocked) [
+                kubernetesSchemas
+                ciliumCRDs
+                clusterNetworkPolicyCRD
+                gatewayAPICRDs
+              ]
+            );
+          };
         };
         nativeBuildInputs = [
           pkgs.kubeconform
@@ -226,13 +257,13 @@ in
           yq ea -N '(select(.kind == "List") | .items[]), select(.kind != "List")
             | select(.kind == "CustomResourceDefinition")' "$f" -s '"crds/" + .metadata.name + ".yaml"'
         done
-        cp ${ciliumCRDs}/pkg/k8s/apis/cilium.io/client/crds/v2/*.yaml ${clusterNetworkPolicyCRD} crds/
-        yq e -N 'select(.kind == "CustomResourceDefinition")' ${gatewayAPICRDs} -s '"crds/" + .metadata.name + ".yaml"'
+        cp ${ciliumCRDs.src}/pkg/k8s/apis/cilium.io/client/crds/v2/*.yaml ${clusterNetworkPolicyCRD.src} crds/
+        yq e -N 'select(.kind == "CustomResourceDefinition")' ${gatewayAPICRDs.src} -s '"crds/" + .metadata.name + ".yaml"'
         (cd schemas && FILENAME_FORMAT='{fullgroup}-{kind}-{version}' \
           python3 ${pkgs.kubeconform.src}/scripts/openapi2jsonschema.py ../crds/*.yaml >/dev/null)
         # yannh's schemas leave out CustomResourceDefinition itself
         kubeconform -strict -summary -skip CustomResourceDefinition \
-          -schema-location '${kubernetesSchemas}/v1.35.8-standalone-strict/{{.ResourceKind}}{{.KindSuffix}}.json' \
+          -schema-location '${kubernetesSchemas.src}/${schemas}/{{.ResourceKind}}{{.KindSuffix}}.json' \
           -schema-location 'schemas/{{.Group}}-{{.ResourceKind}}-{{.ResourceAPIVersion}}.json' \
           ${manifests}/*.yaml
         # Every image comes preloaded from Nix, so nothing may be pulled

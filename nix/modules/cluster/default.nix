@@ -127,6 +127,11 @@ in
       type = lib.types.attrsOf (lib.types.listOf lib.types.str);
       default = { };
     };
+    sourceLocks = lib.mkOption {
+      description = "The fetches each lock file of `lib.pins.locked` pins, by its path and their key, without their hash, for `lock-images` to lock them when a pin changes";
+      type = lib.types.attrsOf (lib.types.attrsOf lib.types.package);
+      default = { };
+    };
     backup.hostPaths = lib.mkOption {
       description = "List of paths on the host that *should* be backed up, this option does not configure a backup, it is only meant for aggregation";
       type = lib.types.listOf lib.types.str;

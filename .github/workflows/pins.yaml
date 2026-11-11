@@ -1,8 +1,8 @@
 name: Pins
 
-# Never runs. Dependabot's github-actions ecosystem bumps the refs below, which
-# pin sources that aren't images or flake inputs. Testing whether it does for
-# repositories without an action.yml
+# Never runs. Dependabot's github-actions ecosystem bumps the refs below
+# (repositories without an action.yml too), which lib.pins.refs reads: sources
+# that are neither images nor flake inputs, their hashes in ../pins.lock
 on: workflow_dispatch
 
 permissions: {}
@@ -13,3 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: kubernetes-sigs/gateway-api@v1.7.0
+    - uses: kubernetes-sigs/network-policy-api@v0.2.1
+    - uses: cilium/cilium@v1.20.4
+    # No tags: Dependabot follows the latest commit
+    - uses: yannh/kubernetes-json-schema@9367d1ce1c88b8bbf6ee06d0e80510f26394913f

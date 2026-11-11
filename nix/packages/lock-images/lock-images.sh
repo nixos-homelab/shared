@@ -9,8 +9,9 @@ Usage:
 
 Without arguments: writes images.lock next to every Dockerfile below the
 current directory, the Nix hash of each FROM line's image (lib.images.pinned),
-and re-locks every lock file of the flake there that its manifests check
-names (homelab.cluster.imageLocks).
+re-locks every lock file of the flake there that its manifests check names
+(homelab.cluster.imageLocks), and locks the hash of every pinned source that
+check fetches (homelab.cluster.sourceLocks, lib.pins).
 --lock: writes FILE with the digest and Nix hash of each REF, a tag resolved
 to its digest now (lib.images.locked and lib.images.chart).
 "
@@ -103,7 +104,7 @@ return 0;else consume "$i" "var_$1=$value_ref" "${param#*:}" && return 0;fi
 return 1;fi;done;return 1;};stdout() { printf -- "cat <<'EOM'\n%s\nEOM\n" "$1";}
 stderr() { printf -- "cat <<'EOM' >&2\n%s\nEOM\n" "$1";};error() { [[ -n $1 ]] \
 && stderr "$1";stderr "$usage";_return 1;};_return() { printf -- "exit %d\n" \
-"$1";exit "$1";};set -e;trimmed_doc=${DOC:0:490};usage=${DOC:38:53};digest=d81c6
+"$1";exit "$1";};set -e;trimmed_doc=${DOC:0:588};usage=${DOC:38:53};digest=f5a68
 options=(' --lock 0');node_0(){ switch __lock 0;};node_1(){ value FILE a;}
 node_2(){ value REF a true;};node_3(){ sequence 0 1 4;};node_4(){ repeatable 2;}
 node_5(){ optional 3;};cat <<<' docopt_exit() { [[ -n $1 ]] && printf "%s\n" \
@@ -167,6 +168,22 @@ main() {
   for lockfile in $(jq -r --arg source "$source/" 'keys[] | select(startswith($source))' <<<"$locks"); do
     mapfile -t refs < <(jq -r --arg lockfile "$lockfile" '.[$lockfile][]' <<<"$locks")
     lock "${lockfile#"$source/"}" "${refs[@]}"
+  done
+  # The pinned sources: a key whose ref changed is a new key, its hash what Nix names when the fetch has none
+  local sources path old key hash
+  sources=$(nix eval --json ".#checks.$system.manifests.sourceLocks" --apply 'locks: builtins.mapAttrs (_: builtins.attrNames) locks')
+  for lockfile in $(jq -r --arg source "$source/" 'keys[] | select(startswith($source))' <<<"$sources"); do
+    path=${lockfile#"$source/"} old='{}' lock='{}'
+    [[ ! -f $path ]] || old=$(<"$path")
+    while read -r key; do
+      hash=$(jq -r --arg key "$key" '.[$key] // empty' <<<"$old")
+      if [[ -z $hash ]]; then
+        hash=$(nix build --no-link ".#checks.$system.manifests.sourceLocks.\"$lockfile\".\"$key\"" 2>&1 | grep -oE 'got: +sha256-[^ ]+' | awk '{print $2}' || true)
+        [[ -n $hash ]] || { printf "Could not learn the hash of %s\n" "$key" >&2; return 1; }
+      fi
+      lock=$(jq --arg key "$key" --arg hash "$hash" '.[$key] = $hash' <<<"$lock")
+    done < <(jq -r --arg lockfile "$lockfile" '.[$lockfile][]' <<<"$sources")
+    jq -S . <<<"$lock" >"$path"
   done
 }
 

@@ -62,6 +62,7 @@
             images = import ./nix/lib/images.nix { inherit lib; };
             ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };
             k8s = import ./nix/lib/k8s.nix { inherit lib; };
+            pins = import ./nix/lib/pins.nix { inherit lib; };
             setup-secrets = import ./nix/lib/setup-secrets.nix { inherit lib; };
             workload-macros = import ./nix/lib/workload-macros.nix { inherit lib; };
           };
