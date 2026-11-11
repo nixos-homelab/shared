@@ -112,7 +112,7 @@ in
     extraSettings = lib.mkOption {
       description = "Additional postgresql.conf settings";
       type = lib.types.lines;
-      default = [ ];
+      default = "";
     };
     image.entrypoint = lib.mkOption {
       description = "The docker-entrypoint to install";

@@ -57,6 +57,7 @@
         flake = {
           lib = {
             importsApply = map (path: importApply path { inherit self inputs; });
+            checks = import ./nix/lib/checks.nix { inherit self inputs lib; };
             homepage = import ./nix/lib/homepage.nix { inherit lib; };
             images = import ./nix/lib/images.nix { inherit lib; };
             ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };
@@ -81,6 +82,28 @@
         perSystem =
           { pkgs, system, ... }:
           {
+            checks.manifests = self.lib.checks.manifests {
+              inherit pkgs;
+              modules = [
+                {
+                  homelab = {
+                    k8sss.enable = true;
+                    nfs-provisioner = {
+                      enable = true;
+                      path = "/srv/nfs";
+                    };
+                    postgresql = {
+                      enable = true;
+                      databases = { };
+                    };
+                    redis = {
+                      enable = true;
+                      databases = { };
+                    };
+                  };
+                }
+              ];
+            };
             packages = {
               container-utils = pkgs.callPackage ./nix/packages/container-utils { };
               lock-images = pkgs.callPackage ./nix/packages/lock-images { };
