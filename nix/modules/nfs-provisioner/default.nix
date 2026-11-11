@@ -95,7 +95,7 @@ in
       defaultText = "";
     };
   };
-  config = {
+  config = lib.mkIf cfg.enable {
     kubetree.resources.nfs-provisioner.namespace = self.lib.k8s.createNamespace {
       namespace = "nfs-provisioner";
     };

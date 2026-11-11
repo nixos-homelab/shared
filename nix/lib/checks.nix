@@ -149,6 +149,10 @@ in
                     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+kj02ez01d/NBAbS3ybonaf76LMymdbEblV9pHEwZj admin@example.org"
                   ];
                 };
+                kubetree.workload-macros = {
+                  acmeProvider = "letsencrypt-staging";
+                  gatewayClassName = "example";
+                };
                 homelab.cluster = {
                   enable = true;
                   domain = "example.org";
@@ -190,6 +194,11 @@ in
         url = "https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.1/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml";
         hash = "sha256-RsY1nBGi7NqwWx87BIjlZgkSQ6yHYyIv5VsAxbjuQ5c=";
       };
+      # Gateway API's CRDs, which a CNI module installs (networking's cilium does, this release)
+      gatewayAPICRDs = pkgs.fetchurl {
+        url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml";
+        hash = "sha256-ZOx2YJpqyIXgQF3qecpQnCKfoBnTQvCFeqi2vci4upI=";
+      };
       manifests = config.kubetree.k3s.payload.manifests;
       # What k3s imports at start (k3s' own airgap images aside, which carry no name)
       preloaded = pkgs.writeText "preloaded-images" (
@@ -215,6 +224,7 @@ in
             | select(.kind == "CustomResourceDefinition")' "$f" -s '"crds/" + .metadata.name + ".yaml"'
         done
         cp ${ciliumCRDs}/pkg/k8s/apis/cilium.io/client/crds/v2/*.yaml ${clusterNetworkPolicyCRD} crds/
+        yq e -N 'select(.kind == "CustomResourceDefinition")' ${gatewayAPICRDs} -s '"crds/" + .metadata.name + ".yaml"'
         (cd schemas && FILENAME_FORMAT='{fullgroup}-{kind}-{version}' \
           python3 ${pkgs.kubeconform.src}/scripts/openapi2jsonschema.py ../crds/*.yaml >/dev/null)
         # yannh's schemas leave out CustomResourceDefinition itself
