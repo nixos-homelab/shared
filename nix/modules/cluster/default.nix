@@ -53,6 +53,9 @@ let
     disable-helm-controller = true;
     embedded-registry = true;
     kube-apiserver-arg = [ "service-node-port-range=1024-32767" ];
+    # k3s imports the preloaded images without unpacking them, so the first container of an image unpacks it. A big
+    # image on a slow disk outlasts k3s' 2 minutes, and each retry starts over
+    kubelet-arg = [ "runtime-request-timeout=10m" ];
     cluster-cidr =
       lib.optional ccfg.enableIPv4 ccfg.podCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.podCidr6;
     service-cidr =
