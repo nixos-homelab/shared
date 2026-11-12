@@ -33,10 +33,7 @@ let
       os = "linux";
       arch = "x86_64";
     };
-    copyToRoot = [
-      pkgs.bash
-      assets
-    ]
+    copyToRoot = [ assets ]
     ++ lib.optionals cfg.debug ccfg.debugTools;
     runAsRoot = ''
       #!${pkgs.runtimeShell}
@@ -44,12 +41,12 @@ let
     '';
     config.WorkingDir = "/app";
     config.Entrypoint = [
-      (pkgs.lib.getExe (
-        pkgs.writeShellScriptBin "setup-pages" ''
-          cp -r /app/.next/server/pages-template/. /app/.next/server/pages/.
-          exec "$@"
-        ''
-      ))
+      # The base image's /bin/sh, so the layer carries no bash and glibc
+      "${pkgs.writeScript "setup-pages" ''
+        #!/bin/sh
+        cp -r /app/.next/server/pages-template/. /app/.next/server/pages/.
+        exec "$@"
+      ''}"
     ];
     config.Cmd = [
       "node"

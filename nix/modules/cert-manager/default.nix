@@ -41,6 +41,11 @@ let
     };
     proxyVendor = true;
     vendorHash = "sha256-8XsRK1BR/D2hv18Dko/T99tuFzHBWE07r6PF4CRoqkA=";
+    subPackages = [ "." ];
+    ldflags = [
+      "-s"
+      "-w"
+    ];
 
     doCheck = false; # Tests require kubebuilder running through `make test`
   };
