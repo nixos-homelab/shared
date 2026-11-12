@@ -49,6 +49,7 @@ let
           "allowEgress"
           "dataPath"
           "ingressPort"
+          "httpRouteRules"
           "podSpecMacro"
           "service"
           "netpol"
