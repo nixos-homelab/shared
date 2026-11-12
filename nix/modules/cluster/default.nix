@@ -148,6 +148,7 @@ in
   };
   imports = [
     inputs.kubetree.nixosModules.default
+    (import ./kubenix.nix { inherit inputs; })
     self.nixosModules.workload-macros
     inputs.setup-secrets.nixosModules.default
   ];
