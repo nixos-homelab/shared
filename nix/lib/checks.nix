@@ -105,8 +105,76 @@ let
         ingress."[]"._transformers = [ transformToPortsFlattened ];
         egress."[]"._transformers = [ transformToPortsFlattened ];
       };
+      # The same for the policies of kubenix workloads, which networking's cilium module adds when Cilium runs
+      workloadPolicies =
+        {
+          lib,
+          name,
+          args,
+          config,
+          ...
+        }:
+        let
+          inherit (config.kubernetes) namespace;
+          ports = lib.mapAttrsToList (_: p: {
+            port = p.containerPort;
+            protocol = if p.protocol == null then "TCP" else p.protocol;
+          }) args.ports;
+          egressLabel = "cluster.local/${name}-egress";
+        in
+        {
+          kubernetes.resources = lib.mkIf (args.ports != { }) {
+            networkPolicies."${name}-from-pod".spec = {
+              podSelector.matchLabels."app.kubernetes.io/name" = name;
+              policyTypes = [ "Ingress" ];
+              ingress = [
+                {
+                  from = [
+                    {
+                      namespaceSelector = { };
+                      podSelector.matchLabels.${egressLabel} = "allow";
+                    }
+                  ];
+                  inherit ports;
+                }
+              ];
+            };
+            clusterNetworkPolicies."pod-to-${name}" = {
+              metadata.namespace = null;
+              spec = {
+                tier = "Baseline";
+                priority = 500;
+                subject.pods = {
+                  namespaceSelector = { };
+                  podSelector.matchLabels.${egressLabel} = "allow";
+                };
+                egress = [
+                  {
+                    name = "to-${name}";
+                    action = "Accept";
+                    to = [
+                      {
+                        pods = {
+                          namespaceSelector.matchLabels."kubernetes.io/metadata.name" = namespace;
+                          podSelector.matchLabels."app.kubernetes.io/name" = name;
+                        };
+                      }
+                    ];
+                    protocols = map (p: { ${lib.toLower p.protocol}.destinationPort.number = p.port; }) ports;
+                  }
+                ];
+              };
+            };
+          };
+        };
     in
     {
+      config.homelab.kubernetes.submodules.defaults = lib.mkIf (!(config.homelab.cilium.enable or false)) [
+        {
+          name = "workload";
+          default = workloadPolicies;
+        }
+      ];
       config.kubetree.transformers = lib.mkIf (!(config.kubetree.cilium.enable or false)) {
         "cluster.local".NetpolMacro._transformers = [
           transformNetpolMacro

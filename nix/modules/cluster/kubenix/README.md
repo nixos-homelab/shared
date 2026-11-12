@@ -76,6 +76,14 @@ homelab.kubernetes.submodules.instances.grafana = {
 - `allowIngress`/`allowEgress`: the pod labels
   `cluster.local/<workload>-ingress`/`-egress: allow`, for the label
   selectors of the network policies.
+
+The workload holds no network policies of its own. The module of the CNI
+adds them to every instance through `submodules.defaults`: with `ports`,
+[networking's
+cilium](https://github.com/nixos-homelab/networking/blob/main/nix/modules/cilium/README.md)
+lets pods labeled `cluster.local/<workload>-egress: allow` reach them. The
+manifests check, which has no CNI, expands the same intent into a
+NetworkPolicy and a ClusterNetworkPolicy.
 - `securityContext`: `runAsUser`, `runAsGroup` (also the `fsGroup`) and
   `supplementalGroups` of the pod. They default to
   `kubetree.workload-macros.securityContext`, as `gateway.domain`,

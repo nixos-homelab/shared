@@ -66,16 +66,5 @@ in
         };
       };
     };
-    # The network policies stay with kubetree until networking expands them from kubenix
-    kubetree.resources.redis.netpol = {
-      apiVersion = "cluster.local";
-      kind = "NetpolMacro";
-      metadata = {
-        name = "redis";
-        namespace = "redis";
-        labels."app.kubernetes.io/name" = "redis";
-      };
-      spec.ports = [ 6379 ];
-    };
   };
 }
