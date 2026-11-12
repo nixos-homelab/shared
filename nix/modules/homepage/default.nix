@@ -193,13 +193,79 @@ in
     homelab.homepage.assets.${backgroundAsset} = cfg.backgroundImage;
     services.k3s.images = [ image ];
     services.k3s.manifests.homepage-static.source = ./homepage.yaml;
-    kubetree.resources.homepage = {
-      config = {
-        apiVersion = "v1";
-        kind = "ConfigMap";
-        metadata.name = "homepage";
-        metadata.namespace = "homepage";
-        data = {
+    homelab.kubernetes.submodules.instances.homepage = {
+      submodule = "workload";
+      args = {
+        allowEgress = [ "apiserver" ] ++ cfg.allowEgress;
+        ingressPort = 3000;
+        gateway.subdomain = null;
+        ports.web = 3000;
+        container = {
+          image = "${image.buildArgs.name}:${image.imageTag}";
+          imagePullPolicy = "Never";
+          # Make all referenced env vars optional. Homepage can handle some values not being present
+          env =
+            (lib.mapAttrs (
+              name: spec:
+              if lib.isAttrs spec && spec ? valueFrom then
+                (
+                  if spec.valueFrom ? configMapKeyRef then
+                    lib.recursiveUpdate spec { valueFrom.configMapKeyRef.optional = true; }
+                  else
+                    (
+                      if spec.valueFrom ? secretKeyRef then
+                        lib.recursiveUpdate spec { valueFrom.secretKeyRef.optional = true; }
+                      else
+                        spec
+                    )
+                )
+              else if lib.isAttrs spec then
+                spec
+              else
+                { value = spec; }
+            ) cfg.envByName)
+            // {
+              HOMEPAGE_ALLOWED_HOSTS.value = ccfg.domain;
+              PUID.value = "1000";
+              PGID.value = "1000";
+            };
+          envFrom = map (
+            spec:
+            if lib.isAttrs spec then
+              (
+                if spec ? configMapRef then
+                  lib.recursiveUpdate spec { configMapRef.optional = true; }
+                else
+                  (if spec ? secretRef then lib.recursiveUpdate spec { secretRef.optional = true; } else spec)
+              )
+            else
+              spec
+          ) cfg.envFrom;
+          livenessProbe.httpGet.port = "web";
+          readinessProbe.httpGet.port = "web";
+          volumeMounts =
+            lib.genAttrs' [
+              "custom.js"
+              "custom.css"
+              "bookmarks.yaml"
+              "docker.yaml"
+              "kubernetes.yaml"
+              "proxmox.yaml"
+              "services.yaml"
+              "settings.yaml"
+              "widgets.yaml"
+            ] (filename: lib.nameValuePair "/app/config/${filename}" {
+              name = "config";
+              subPath = filename;
+            })
+            // {
+              "/app/.next/server/pages".name = "pages";
+              "/app/config/logs".name = "logs";
+            };
+        };
+      };
+      config.kubernetes.resources = {
+        configMaps.homepage.data = {
           "kubernetes.yaml" = builtins.toJSON { mode = "cluster"; };
           "bookmarks.yaml" = builtins.toJSON (
             lib.mapAttrsToList (category: contents: {
@@ -242,100 +308,14 @@ in
           "custom.css" = "";
           "custom.js" = "";
         };
-      };
-      workload = {
-        apiVersion = "cluster.local";
-        kind = "WorkloadMacro";
-        metadata.name = "homepage";
-        spec = {
-          allowIngress = [ "gateway" ];
-          allowEgress = [
-            "apiserver"
-          ]
-          ++ cfg.allowEgress;
-          ingressPort = null;
-          podSpecMacro.serviceAccountName = "homepage";
-          podSpecMacro.mainContainer = {
-            image = "${image.buildArgs.name}:${image.imageTag}";
-            imagePullPolicy = "Never";
-            # Make all referenced env vars optional. Homepage can handle some values not being present
-            envByName =
-              (lib.mapAttrs (
-                name: spec:
-                if lib.isAttrs spec && spec ? valueFrom then
-                  (
-                    if spec.valueFrom ? configMapKeyRef then
-                      lib.recursiveUpdate spec { valueFrom.configMapKeyRef.optional = true; }
-                    else
-                      (
-                        if spec.valueFrom ? secretKeyRef then
-                          lib.recursiveUpdate spec { valueFrom.secretKeyRef.optional = true; }
-                        else
-                          spec
-                      )
-                  )
-                else
-                  spec
-              ) cfg.envByName)
-              // {
-                HOMEPAGE_ALLOWED_HOSTS = ccfg.domain;
-                PUID = "1000";
-                PGID = "1000";
-              };
-            envFrom = map (
-              spec:
-              if lib.isAttrs spec then
-                (
-                  if spec ? configMapRef then
-                    lib.recursiveUpdate spec { configMapRef.optional = true; }
-                  else
-                    (if spec ? secretRef then lib.recursiveUpdate spec { secretRef.optional = true; } else spec)
-                )
-              else
-                spec
-            ) cfg.envFrom;
-            portsByName.web = 3000;
-            livenessProbe.httpGet.port = "web";
-            readinessProbe.httpGet.port = "web";
-            volumeMountsByPath =
-              (lib.mergeAttrsList (
-                map
-                  (filename: {
-                    "/app/config/${filename}" = {
-                      name = "config";
-                      subPath = filename;
-                    };
-                  })
-                  [
-                    "custom.js"
-                    "custom.css"
-                    "bookmarks.yaml"
-                    "docker.yaml"
-                    "kubernetes.yaml"
-                    "proxmox.yaml"
-                    "services.yaml"
-                    "settings.yaml"
-                    "widgets.yaml"
-                  ]
-              ))
-              // {
-                "/app/.next/server/pages" = "pages";
-                "/app/config/logs" = "logs";
-              };
-          };
-          podSpecMacro.volumesByName = {
+        deployments.homepage.spec.template.spec = {
+          serviceAccountName = "homepage";
+          volumes = {
             config.configMap.name = "homepage";
             logs.emptyDir = { };
             pages.emptyDir = { };
           };
         };
-      };
-      gateway = {
-        apiVersion = "cluster.local";
-        kind = "GatewayMacro";
-        metadata.name = "homepage";
-        spec.port = 3000;
-        spec.subdomain = null;
       };
     };
   };

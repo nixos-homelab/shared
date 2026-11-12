@@ -97,210 +97,157 @@ in
       cert-manager-helm.source = certManager.manifest;
       cert-manager-webhook-libdns-static.source = ./cert-manager-webhook-libdns.yaml;
     };
-    kubetree.resources = {
-      cert-manager = {
-        namespace = (self.lib.k8s.createNamespace { namespace = "cert-manager"; });
-        netpol-controller-to-webhook = {
-          apiVersion = "cilium.io/v2";
-          kind = "CiliumNetworkPolicy";
-          metadata = {
-            namespace = "cert-manager";
-            name = "controller-to-webhook";
-            labels = {
+    homelab.kubernetes.submodules.instances.cert-manager = {
+      submodule = "manifest";
+      config = {
+        kubernetes.resources =
+          let
+            controller = {
               "app.kubernetes.io/name" = "cert-manager";
               "app.kubernetes.io/component" = "controller";
               "app.kubernetes.io/instance" = "cert-manager";
             };
-          };
-          spec.endpointSelector.matchLabels = {
-            "app.kubernetes.io/name" = "cert-manager";
-            "app.kubernetes.io/component" = "controller";
-            "app.kubernetes.io/instance" = "cert-manager";
-          };
-          spec.egress = [
-            {
-              toEndpoints = [
-                {
-                  matchLabels = {
-                    "app.kubernetes.io/name" = "webhook";
-                    "app.kubernetes.io/component" = "webhook";
-                    "app.kubernetes.io/instance" = "cert-manager";
-                  };
-                }
-              ];
-              toPortsFlattened = [ 10250 ];
-            }
-          ];
-        };
-        netpol-webhook-from-controller = {
-          apiVersion = "cilium.io/v2";
-          kind = "CiliumNetworkPolicy";
-          metadata = {
-            namespace = "cert-manager";
-            name = "webhook-from-controller";
-            labels = {
+            webhook = {
               "app.kubernetes.io/name" = "webhook";
               "app.kubernetes.io/component" = "webhook";
               "app.kubernetes.io/instance" = "cert-manager";
             };
-          };
-          spec.endpointSelector.matchLabels = {
-            "app.kubernetes.io/name" = "webhook";
-            "app.kubernetes.io/component" = "webhook";
-            "app.kubernetes.io/instance" = "cert-manager";
-          };
-          spec.ingress = [
-            {
-              fromEntities = [ "kube-apiserver" ];
-              toPortsFlattened = [ 10250 ];
-            }
-            {
-              fromEndpoints = [
-                {
-                  matchLabels = {
-                    "app.kubernetes.io/name" = "cert-manager";
-                    "app.kubernetes.io/component" = "controller";
-                    "app.kubernetes.io/instance" = "cert-manager";
-                  };
-                }
-              ];
-              toPortsFlattened = [ 10250 ];
-            }
-          ];
-        };
-        selfsigned-issuer = {
-          apiVersion = "cert-manager.io/v1";
-          kind = "ClusterIssuer";
-          metadata.name = "selfsigned";
-          spec.selfSigned = { };
-        };
-        acme-staging-issuer = {
-          apiVersion = "cert-manager.io/v1";
-          kind = "ClusterIssuer";
-          metadata.name = "letsencrypt-staging";
-          spec.acme = {
-            server = "https://acme-staging-v02.api.letsencrypt.org/directory";
-            privateKeySecretRef.name = "letsencrypt-staging";
-            solvers = [
-              {
-                dns01.webhook = {
-                  groupName = "cluster.local";
-                  solverName = "libdns";
-                  config = {
-                    provider = cfg.acme-staging-issuer.webhook-config.provider;
-                    secretRef = {
-                      namespace = "cert-manager";
-                      name = cfg.acme-staging-issuer.webhook-config.secretName;
+            toPorts = [ { ports = [ { port = "10250"; } ]; } ];
+            acmeIssuer = server: privateKey: webhook-config: {
+              metadata.namespace = null;
+              spec.acme = {
+                inherit server;
+                privateKeySecretRef.name = privateKey;
+                solvers = [
+                  {
+                    dns01.webhook = {
+                      groupName = "cluster.local";
+                      solverName = "libdns";
+                      config = {
+                        inherit (webhook-config) provider;
+                        secretRef = {
+                          namespace = "cert-manager";
+                          name = webhook-config.secretName;
+                        };
+                      };
                     };
-                  };
-                };
-              }
-            ];
-          };
-        };
-        acme-production-issuer = {
-          apiVersion = "cert-manager.io/v1";
-          kind = "ClusterIssuer";
-          metadata.name = "letsencrypt-production";
-          spec.acme = {
-            server = "https://acme-v02.api.letsencrypt.org/directory";
-            privateKeySecretRef.name = "letsencrypt-production";
-            solvers = [
-              {
-                dns01.webhook = {
-                  groupName = "cluster.local";
-                  solverName = "libdns";
-                  config = {
-                    provider = cfg.acme-production-issuer.webhook-config.provider;
-                    secretRef = {
-                      namespace = "cert-manager";
-                      name = cfg.acme-production-issuer.webhook-config.secretName;
-                    };
-                  };
-                };
-              }
-            ];
-          };
-        };
-        webhook-libdns-deployment = {
-          apiVersion = "cluster.local";
-          kind = "DeploymentMacro";
-          metadata = {
-            namespace = "cert-manager";
-            name = "cert-manager-webhook-libdns";
-          };
-          spec.allowEgress = [
-            "apiserver"
-            "internet"
-          ];
-          spec.allowIngress = [ "apiserver" ];
-          spec.podSpecMacro = {
-            serviceAccountName = "cert-manager-webhook-libdns";
-            securityContext.fsGroup = 1001;
-            mainContainer = {
-              image = "${webhookImage.buildArgs.name}:${webhookImage.imageTag}";
-              imagePullPolicy = "Never";
-              args = [
-                "--tls-cert-file=/tls/tls.crt"
-                "--tls-private-key-file=/tls/tls.key"
-                "--secure-port=8443"
-              ];
-              envByName.GROUP_NAME = "cluster.local";
-              portsByName.https = 8443;
-              livenessProbe = {
-                httpGet = {
-                  scheme = "HTTPS";
-                  path = "/healthz";
-                  port = "https";
-                };
-              };
-              readinessProbe = {
-                httpGet = {
-                  scheme = "HTTPS";
-                  path = "/healthz";
-                  port = "https";
-                };
-              };
-              volumeMountsByPath."/tls" = {
-                name = "tls";
-                readOnly = true;
+                  }
+                ];
               };
             };
-            volumesByName.tls.secret.secretName = "cert-manager-webhook-libdns-tls";
-          };
-        };
-        webhook-libdns-service = {
-          apiVersion = "cluster.local";
-          kind = "ServiceMacro";
-          metadata.namespace = "cert-manager";
-          metadata.name = "cert-manager-webhook-libdns";
-          spec.portsByName.https = {
-            port = 443;
-            targetPort = 8443;
-          };
-        };
-        webhook-libdns-secret-reader-role = {
-          apiVersion = "rbac.authorization.k8s.io/v1";
-          kind = "Role";
-          metadata = {
-            namespace = "cert-manager";
-            name = "cert-manager-webhook-libdns:secret-reader";
-            labels."app.kubernetes.io/name" = "cert-manager-webhook-libdns";
-          };
-          rules = [
-            {
-              apiGroups = [ "" ];
-              resources = [ "secrets" ];
-              resourceNames = [
-                cfg.acme-staging-issuer.webhook-config.secretName
-                cfg.acme-production-issuer.webhook-config.secretName
+          in
+          {
+            namespaces.cert-manager.metadata.namespace = null;
+            ciliumNetworkPolicies = {
+              controller-to-webhook = {
+                metadata.labels = controller;
+                spec = {
+                  endpointSelector.matchLabels = controller;
+                  egress = [
+                    {
+                      toEndpoints = [ { matchLabels = webhook; } ];
+                      inherit toPorts;
+                    }
+                  ];
+                };
+              };
+              webhook-from-controller = {
+                metadata.labels = webhook;
+                spec = {
+                  endpointSelector.matchLabels = webhook;
+                  ingress = [
+                    {
+                      fromEntities = [ "kube-apiserver" ];
+                      inherit toPorts;
+                    }
+                    {
+                      fromEndpoints = [ { matchLabels = controller; } ];
+                      inherit toPorts;
+                    }
+                  ];
+                };
+              };
+            };
+            clusterIssuers = {
+              selfsigned = {
+                metadata.namespace = null;
+                spec.selfSigned = { };
+              };
+              letsencrypt-staging =
+                acmeIssuer "https://acme-staging-v02.api.letsencrypt.org/directory" "letsencrypt-staging"
+                  cfg.acme-staging-issuer.webhook-config;
+              letsencrypt-production =
+                acmeIssuer "https://acme-v02.api.letsencrypt.org/directory" "letsencrypt-production"
+                  cfg.acme-production-issuer.webhook-config;
+            };
+            roles."cert-manager-webhook-libdns:secret-reader" = {
+              metadata.labels."app.kubernetes.io/name" = "cert-manager-webhook-libdns";
+              rules = [
+                {
+                  apiGroups = [ "" ];
+                  resources = [ "secrets" ];
+                  resourceNames = [
+                    cfg.acme-staging-issuer.webhook-config.secretName
+                    cfg.acme-production-issuer.webhook-config.secretName
+                  ];
+                  verbs = [
+                    "get"
+                    "watch"
+                  ];
+                }
               ];
-              verbs = [
-                "get"
-                "watch"
+            };
+          };
+        submodules.instances = {
+          webhook-libdns = {
+            name = "cert-manager-webhook-libdns";
+            submodule = "deployment";
+            args = {
+              allowEgress = [
+                "apiserver"
+                "internet"
               ];
-            }
-          ];
+              allowIngress = [ "apiserver" ];
+              ports.https = 8443;
+              container = {
+                image = "${webhookImage.buildArgs.name}:${webhookImage.imageTag}";
+                imagePullPolicy = "Never";
+                args = [
+                  "--tls-cert-file=/tls/tls.crt"
+                  "--tls-private-key-file=/tls/tls.key"
+                  "--secure-port=8443"
+                ];
+                env.GROUP_NAME.value = "cluster.local";
+                livenessProbe.httpGet = {
+                  scheme = "HTTPS";
+                  path = "/healthz";
+                  port = "https";
+                };
+                readinessProbe.httpGet = {
+                  scheme = "HTTPS";
+                  path = "/healthz";
+                  port = "https";
+                };
+                volumeMounts."/tls" = {
+                  name = "tls";
+                  readOnly = true;
+                };
+              };
+            };
+            config.kubernetes.resources.deployments.cert-manager-webhook-libdns.spec.template.spec = {
+              serviceAccountName = "cert-manager-webhook-libdns";
+              securityContext.fsGroup = 1001;
+              volumes.tls.secret.secretName = "cert-manager-webhook-libdns-tls";
+            };
+          };
+          webhook-libdns-service = {
+            name = "cert-manager-webhook-libdns";
+            submodule = "service";
+            args.ports.https = {
+              port = 443;
+              targetPort = 8443;
+            };
+          };
         };
       };
     };

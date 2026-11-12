@@ -104,7 +104,8 @@ in
           # A function: kubenix types take an attribute set as config only, imports included
           (_: { imports = [ args.container ]; })
           {
-          ports = lib.mapAttrs (_: p: lib.filterAttrs (_: v: v != null) p) args.ports;
+          # Unset without ports: kubenix writes an empty attribute set as `ports: []`
+          ports = lib.mkIf (args.ports != { }) (lib.mapAttrs (_: p: lib.filterAttrs (_: v: v != null) p) args.ports);
           securityContext = {
             allowPrivilegeEscalation = mkDefault false;
             readOnlyRootFilesystem = mkDefault true;

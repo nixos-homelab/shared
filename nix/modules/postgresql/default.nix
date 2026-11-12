@@ -172,163 +172,142 @@ in
       serviceName: spec: "/${spec.dbName}.pgdump"
     ) dbBackups;
 
-    kubetree.resources.postgresql = {
-      config = {
-        apiVersion = "v1";
-        kind = "ConfigMap";
-        metadata.name = "postgresql";
-        metadata.namespace = "postgresql";
-        # The include in POSTGRES_INITDB_ARGS fails initdb's probes, which then fall back to 20 connections and
-        # 400kB of buffers; it comes after them in postgresql.conf, so these are what initdb picks otherwise
-        data."postgresql.conf" = ''
-          listen_addresses = '*'
-          max_connections = 100
-          shared_buffers = 128MB
-          ${cfg.extraSettings}
-        '';
-      };
-      workload = {
-        apiVersion = "cluster.local";
-        kind = "WorkloadMacro";
-        metadata.name = "postgresql";
-        spec = {
+    homelab.kubernetes.submodules.instances = {
+      postgresql = {
+        submodule = "workload";
+        args = {
           dataPath = "/var/lib/postgresql";
-          podSpecMacro = {
-            mainContainer = {
-              image = "${image.buildArgs.name}:${image.imageTag}";
-              imagePullPolicy = "Never";
-              lifecycle.stopSignal = "SIGINT";
-              # POSTGRES_PASSWORD only applies at initdb, so the Secret's password is set on every start too.
-              # The temporary server initdb starts takes it as well, and the loop outlasts its shutdown.
-              lifecycle.postStart.exec.command = [
-                "bash"
-                "-c"
-                ''
-                  until psql --no-psqlrc -qh /run/postgresql -U postgres -v ON_ERROR_STOP=1 >/dev/null <<'EOF'
-                  \getenv pw POSTGRES_PASSWORD
-                  ALTER USER postgres PASSWORD :'pw'
-                  EOF
-                  do sleep 1; done
-                ''
-              ];
-              envByName.POSTGRES_PASSWORD = passwordRef "postgres";
-              envByName.POSTGRES_INITDB_ARGS = "-c include='/etc/postgresql/postgresql.conf'";
-              portsByName.postgresql = 5432;
-              volumeMountsByPath = {
-                "/etc/postgresql" = "config";
-                "/run/postgresql" = "run";
-                "/tmp" = "tmp";
-              };
-              livenessProbe.tcpSocket.port = "postgresql";
-              readinessProbe.tcpSocket.port = "postgresql";
+          ports.postgresql = 5432;
+          container = {
+            image = "${image.buildArgs.name}:${image.imageTag}";
+            imagePullPolicy = "Never";
+            lifecycle.stopSignal = "SIGINT";
+            # POSTGRES_PASSWORD only applies at initdb, so the Secret's password is set on every start too.
+            # The temporary server initdb starts takes it as well, and the loop outlasts its shutdown.
+            lifecycle.postStart.exec.command = [
+              "bash"
+              "-c"
+              ''
+                until psql --no-psqlrc -qh /run/postgresql -U postgres -v ON_ERROR_STOP=1 >/dev/null <<'EOF'
+                \getenv pw POSTGRES_PASSWORD
+                ALTER USER postgres PASSWORD :'pw'
+                EOF
+                do sleep 1; done
+              ''
+            ];
+            env.POSTGRES_PASSWORD = passwordRef "postgres";
+            env.POSTGRES_INITDB_ARGS.value = "-c include='/etc/postgresql/postgresql.conf'";
+            volumeMounts = {
+              "/etc/postgresql".name = "config";
+              "/run/postgresql".name = "run";
+              "/tmp".name = "tmp";
             };
-            volumesByName = {
-              config.configMap.name = "postgresql";
-              run.emptyDir = { };
-              tmp.emptyDir = { };
-            };
+            livenessProbe.tcpSocket.port = "postgresql";
+            readinessProbe.tcpSocket.port = "postgresql";
+          };
+        };
+        config.kubernetes.resources = {
+          # The include in POSTGRES_INITDB_ARGS fails initdb's probes, which then fall back to 20 connections and
+          # 400kB of buffers; it comes after them in postgresql.conf, so these are what initdb picks otherwise
+          configMaps.postgresql.data."postgresql.conf" = ''
+            listen_addresses = '*'
+            max_connections = 100
+            shared_buffers = 128MB
+            ${cfg.extraSettings}
+          '';
+          deployments.postgresql.spec.template.spec.volumes = {
+            config.configMap.name = "postgresql";
+            run.emptyDir = { };
+            tmp.emptyDir = { };
           };
         };
       };
-    };
-    kubetree.resources.postgresql-databases =
-      (lib.mapAttrs' (
-        serviceName: spec:
-        let
-          jobName = "create-${spec.dbName}-db";
-        in
-        {
-          name = jobName;
-          value = {
-            apiVersion = "cluster.local";
-            kind = "JobMacro";
-            metadata.namespace = "postgresql";
-            metadata.name = jobName;
-            spec.allowEgress = [ "postgresql" ];
-            spec.podSpecMacro = {
-              restartPolicy = "OnFailure";
-              mainContainer = {
-                image = "${image.buildArgs.name}:${image.imageTag}";
-                imagePullPolicy = "Never";
-                command = [
-                  "bash"
-                  "-ec"
-                ];
-                args = [
-                  (lib.join "\n" (
-                    map (cmd: ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -f <(printf "%s" "${cmd}")'') ([
-                      "SELECT 'CREATE USER ${spec.username}' WHERE NOT EXISTS (SELECT FROM pg_user WHERE usename = '${spec.username}')\\gexec"
-                      "\\getenv pw USER_PASSWORD\nALTER USER ${spec.username} PASSWORD :'pw'"
-                      "SELECT 'CREATE DATABASE ${spec.dbName}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${spec.dbName}')\\gexec"
-                      "ALTER DATABASE ${spec.dbName} OWNER TO ${spec.username}"
-                    ])
-                    ++ map (
-                      cmd:
-                      ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -d ${spec.dbName} -f <(printf "%s" "${cmd}")''
-                    ) (spec.setupCommands)
-                  ))
-                ];
-                envByName = {
-                  PGHOST = "postgresql.postgresql";
-                  PGUSER = "postgres";
-                  PGPASSWORD = passwordRef "postgres";
-                  USER_PASSWORD = passwordRef spec.username;
-                };
-              };
-            };
-          };
-        }
-      ) cfg.databases)
-      // (lib.mapAttrs' (
-        serviceName: spec:
-        let
-          jobName = "backup-${spec.dbName}-db";
-        in
-        {
-          name = jobName;
-          value = {
-            apiVersion = "cluster.local";
-            kind = "CronJobMacro";
-            metadata.namespace = "postgresql";
-            metadata.name = jobName;
-            spec.schedule = spec.backup.schedule;
-            spec = {
-              allowEgress = [ "postgresql" ];
-              podSpecMacro.mainContainer = {
-                image = "${image.buildArgs.name}:${image.imageTag}";
-                command = [ "pg_dump" ];
-                args = [
-                  "--username=postgres"
-                  "--dbname=${spec.dbName}"
-                  "--blobs"
-                  "--quote-all-identifiers"
-                  "--format=custom"
-                  "--file=/dumps/${spec.dbName}.pgdump"
-                ];
-                envByName = {
-                  PGHOST = "postgresql.postgresql";
-                  PGUSER = "postgres";
-                  PGPASSWORD = passwordRef "postgres";
-                };
-                volumeMountsByPath."/dumps" = "data";
-              };
-              podSpecMacro.volumesByName.data.persistentVolumeClaim.claimName = "database-dumps";
-            };
-          };
-        }
-      ) dbBackups)
-      // {
-        data = {
-          apiVersion = "v1";
-          kind = "PersistentVolumeClaim";
-          metadata.namespace = "postgresql";
-          metadata.name = "database-dumps";
-          spec = {
+      postgresql-databases = {
+        submodule = "manifest";
+        config = {
+          kubernetes.namespace = "postgresql";
+          kubernetes.resources.persistentVolumeClaims.database-dumps.spec = {
             accessModes = [ "ReadWriteOnce" ];
             resources.requests.storage = "1Gi";
             volumeMode = "Filesystem";
           };
+          submodules.instances =
+            lib.mapAttrs' (
+              serviceName: spec:
+              let
+                jobName = "create-${spec.dbName}-db";
+              in
+              lib.nameValuePair jobName {
+                submodule = "job";
+                args = {
+                  allowEgress = [ "postgresql" ];
+                  container = {
+                    image = "${image.buildArgs.name}:${image.imageTag}";
+                    imagePullPolicy = "Never";
+                    command = [
+                      "bash"
+                      "-ec"
+                    ];
+                    args = [
+                      (lib.join "\n" (
+                        map (cmd: ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -f <(printf "%s" "${cmd}")'') ([
+                          "SELECT 'CREATE USER ${spec.username}' WHERE NOT EXISTS (SELECT FROM pg_user WHERE usename = '${spec.username}')\\gexec"
+                          "\\getenv pw USER_PASSWORD\nALTER USER ${spec.username} PASSWORD :'pw'"
+                          "SELECT 'CREATE DATABASE ${spec.dbName}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${spec.dbName}')\\gexec"
+                          "ALTER DATABASE ${spec.dbName} OWNER TO ${spec.username}"
+                        ])
+                        ++ map (
+                          cmd:
+                          ''psql --no-psqlrc --set ON_ERROR_STOP=1 --pset pager=off -d ${spec.dbName} -f <(printf "%s" "${cmd}")''
+                        ) (spec.setupCommands)
+                      ))
+                    ];
+                    env = {
+                      PGHOST.value = "postgresql.postgresql";
+                      PGUSER.value = "postgres";
+                      PGPASSWORD = passwordRef "postgres";
+                      USER_PASSWORD = passwordRef spec.username;
+                    };
+                  };
+                };
+                config.kubernetes.resources.jobs.${jobName}.spec.template.spec.restartPolicy = "OnFailure";
+              }
+            ) cfg.databases
+            // lib.mapAttrs' (
+              serviceName: spec:
+              let
+                jobName = "backup-${spec.dbName}-db";
+              in
+              lib.nameValuePair jobName {
+                submodule = "cronjob";
+                args = {
+                  inherit (spec.backup) schedule;
+                  allowEgress = [ "postgresql" ];
+                  container = {
+                    image = "${image.buildArgs.name}:${image.imageTag}";
+                    command = [ "pg_dump" ];
+                    args = [
+                      "--username=postgres"
+                      "--dbname=${spec.dbName}"
+                      "--blobs"
+                      "--quote-all-identifiers"
+                      "--format=custom"
+                      "--file=/dumps/${spec.dbName}.pgdump"
+                    ];
+                    env = {
+                      PGHOST.value = "postgresql.postgresql";
+                      PGUSER.value = "postgres";
+                      PGPASSWORD = passwordRef "postgres";
+                    };
+                    volumeMounts."/dumps".name = "data";
+                  };
+                };
+                config.kubernetes.resources.cronJobs.${jobName}.spec.jobTemplate.spec.template.spec.volumes.data.persistentVolumeClaim.claimName =
+                  "database-dumps";
+              }
+            ) dbBackups;
         };
       };
+    };
   };
 }

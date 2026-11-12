@@ -4,7 +4,8 @@
 configuration of the cluster: typed Kubernetes resources, so a misspelled
 field fails at evaluation and names where it was set. Each submodule
 instance goes to k3s as a manifest of its own, named after the instance;
-the other objects go to the manifest `kubenix`. It runs next to the
+the other objects go to the manifest `kubenix`. The submodules below
+replace the workload macros. It runs next to the
 [workload macros](https://nixos-homelab.github.io/shared/workload-macros/) while workloads move over.
 
 ## Custom resources
@@ -115,3 +116,83 @@ homelab.kubernetes.submodules.instances.unifi.config.kubernetes.resources = {
 `pod-spec.nix` holds the main container and the pod security context for
 every submodule that runs pods; `submodules.defaults` with
 `features = [ "pod-spec" ]` reaches all of them.
+
+## deployment, daemonset, job, cronjob, script
+
+The pod alone, in the resource that runs it, named after the instance:
+`container`, `ports`, `allowIngress`, `allowEgress` and `securityContext`
+as in the workload, with no Namespace, Service or policies. A Deployment
+is recreated on change; the pod of a Job or CronJob isn't restarted
+unless the instance sets `restartPolicy`. `cronjob` takes the `schedule`.
+
+`script` runs a bash `script` once: a ConfigMap and a Job, the script
+mounted at a path hashed from it, so a changed script changes the pod
+template of the Job, k3s replaces the Job and it runs again. It runs in
+`image`, the container-utils of the cluster unless set.
+
+```nix
+homelab.kubernetes.submodules.instances.backup-grafana-db = {
+  submodule = "cronjob";
+  args = {
+    schedule = "10 3 * * *";
+    allowEgress = [ "postgresql" ];
+    container = {
+      image = "postgresql:latest";
+      command = [ "pg_dump" "--file=/dumps/grafana.pgdump" ];
+      volumeMounts."/dumps".name = "dumps";
+    };
+  };
+  config.kubernetes.resources.cronJobs.backup-grafana-db.spec.jobTemplate.spec.template.spec.volumes.dumps.persistentVolumeClaim.claimName =
+    "database-dumps";
+};
+```
+
+## service
+
+A Service named after the instance, selecting the pods named so. `ports`
+by name: a port number, or the fields of a ServicePort.
+
+```nix
+homelab.kubernetes.submodules.instances.alloy = {
+  submodule = "service";
+  args.ports.web = 3000;
+};
+```
+
+## manifest
+
+Objects that go to k3s together: the resources on the instance `config`
+and the instances nested in it. Every top-level instance is one k3s
+manifest, and k3s deletes what a manifest stops holding. An object that
+moves to another manifest is deleted when k3s applies the old manifest
+first, and a Namespace or a PersistentVolumeClaim takes what it holds
+with it. So objects that went to k3s together stay in one `manifest`,
+under the old name.
+
+```nix
+homelab.kubernetes.submodules.instances.cert-manager = {
+  submodule = "manifest";
+  config = {
+    kubernetes.resources.namespaces.cert-manager.metadata.namespace = null;
+    submodules.instances = {
+      webhook = {
+        name = "cert-manager-webhook-libdns";
+        submodule = "deployment";
+        args.container.image = "cert-manager-webhook-libdns:latest";
+      };
+      webhook-service = {
+        name = "cert-manager-webhook-libdns";
+        submodule = "service";
+        args.ports.https = { port = 443; targetPort = 8443; };
+      };
+    };
+  };
+};
+```
+
+All submodules, `workload` and `manifest` included, put their objects in the namespace of
+the instance they're nested in, or the one named after the instance at the
+top; set `config.kubernetes.namespace` for another. Two nested instances
+whose objects share a name, like a Deployment and the Service in
+front of it, take keys
+of their own and the object name as `name`.

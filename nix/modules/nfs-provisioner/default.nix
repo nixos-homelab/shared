@@ -96,8 +96,9 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
-    kubetree.resources.nfs-provisioner.namespace = self.lib.k8s.createNamespace {
-      namespace = "nfs-provisioner";
+    homelab.kubernetes.submodules.instances.nfs-provisioner = {
+      submodule = "manifest";
+      config.kubernetes.resources.namespaces.nfs-provisioner.metadata.namespace = null;
     };
     services.k3s.images = [ image ];
     services.k3s.manifests = {

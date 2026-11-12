@@ -1,5 +1,5 @@
 # A long-running workload: Namespace, Deployment, and depending on the args a PersistentVolumeClaim, a Service and a
-# Gateway with its HTTPRoutes. Everything lands in the namespace named after the instance; change any object through
+# Gateway with its HTTPRoutes. Everything lands in the namespace of the instance (`namespace.nix`); change any object through
 # the instance's `config`.
 {
   config,
@@ -18,6 +18,7 @@ in
   imports = [
     kubenix.modules.submodule
     kubenix.modules.k8s
+    ./namespace.nix
     ./pod-spec.nix
   ];
   options.submodule.args = {
@@ -62,7 +63,6 @@ in
     submodule.passthru.kubernetes.objects = config.kubernetes.objects;
     submodule.args.allowIngress = lib.optional (args.ingressPort != null) "gateway";
     kubernetes = {
-      namespace = name;
       resources = {
         # Cluster-scoped: no namespace, which kubenix gives every object by default
         namespaces.${name}.metadata.namespace = null;

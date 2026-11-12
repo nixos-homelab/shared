@@ -25,7 +25,16 @@ let
               crds.gatewayAPI.crds ++ crds.cilium.crds ++ crds.clusterNetworkPolicy.crds
             );
             kubernetes.customTypesModuleDefinesCRDSpec = false;
-            submodules.imports = [ ./workload.nix ];
+            submodules.imports = [
+              ./cronjob.nix
+              ./daemonset.nix
+              ./deployment.nix
+              ./job.nix
+              ./manifest.nix
+              ./script.nix
+              ./service.nix
+              ./workload.nix
+            ];
             # The cluster-wide settings still come from kubetree.workload-macros until the hosts set them in kubenix
             submodules.defaults =
               let
@@ -51,6 +60,10 @@ let
                     className = lib.mkDefault wm.gatewayClassName;
                     issuer = lib.mkDefault wm.acmeProvider;
                   };
+                }
+                {
+                  name = "script";
+                  default.submodule.args.image = lib.mkDefault wm.containerUtils;
                 }
               ];
           }
