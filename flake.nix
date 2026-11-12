@@ -64,6 +64,8 @@
           lib = {
             importsApply = map (path: importApply path { inherit self inputs; });
             checks = import ./nix/lib/checks.nix { inherit self inputs lib; };
+            crd2types = import ./nix/lib/crd2types.nix { inherit lib; };
+            crds = import ./nix/lib/crds.nix { inherit self inputs lib; };
             homepage = import ./nix/lib/homepage.nix { inherit lib; };
             images = import ./nix/lib/images.nix { inherit lib; };
             ipv4 = import ./nix/lib/ipv4.nix { inherit lib; };

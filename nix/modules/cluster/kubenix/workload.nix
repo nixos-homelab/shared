@@ -63,21 +63,6 @@ in
     submodule.args.allowIngress = lib.optional (args.ingressPort != null) "gateway";
     kubernetes = {
       namespace = name;
-      # Freeform until the Gateway API CRDs are typed
-      customTypes = {
-        gateway = {
-          attrName = "gateways";
-          group = "gateway.networking.k8s.io";
-          version = "v1";
-          kind = "Gateway";
-        };
-        httproute = {
-          attrName = "httproutes";
-          group = "gateway.networking.k8s.io";
-          version = "v1";
-          kind = "HTTPRoute";
-        };
-      };
       resources = {
         # Cluster-scoped: no namespace, which kubenix gives every object by default
         namespaces.${name}.metadata.namespace = null;
@@ -142,7 +127,7 @@ in
             };
           };
         };
-        httproutes = lib.mkIf (args.ingressPort != null) {
+        hTTPRoutes = lib.mkIf (args.ingressPort != null) {
           ${name} = {
             metadata = { inherit labels; };
             spec = {

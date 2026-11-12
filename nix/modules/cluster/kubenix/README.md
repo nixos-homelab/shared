@@ -7,6 +7,36 @@ instance goes to k3s as a manifest of its own, named after the instance;
 the other objects go to the manifest `kubenix`. It runs next to the
 [workload macros](https://nixos-homelab.github.io/shared/workload-macros/) while workloads move over.
 
+## Custom resources
+
+The custom resources are typed too, from the CRDs:
+[`lib.crd2types.customTypes`](https://nixos-homelab.github.io/shared/lib/) turns a
+CustomResourceDefinition into kubenix `customTypes`, at evaluation, so a
+bump of a CRD retypes its resources. The cluster has Gateway API's
+experimental channel, Cilium's and ClusterNetworkPolicy, as pinned in
+`lib.crds.pinned`; the cert-manager module adds those of its chart. Every
+submodule gets them. Their attribute names are kubenix's: the plural cased
+like the kind (`gateways`, `hTTPRoutes`, `ciliumNetworkPolicies`,
+`certificates`, `clusterIssuers`). Optional fields default to null and are
+left out; value validations (patterns, bounds, CEL rules) stay with the
+API server. A CRD that starts using a schema construct crd2types doesn't
+know fails evaluation, naming where.
+
+```nix
+homelab.kubernetes.kubernetes.resources.certificates.plex = {
+  metadata.namespace = "plex";
+  spec = {
+    secretName = "plex-tls";
+    dnsNames = [ "plex.example.org" ];
+    issuerRef = { kind = "ClusterIssuer"; name = "letsencrypt-production"; };
+  };
+};
+```
+
+A module adds the types of a CRD it installs to
+`homelab.kubernetes.kubernetes.customTypes`. Cluster-scoped resources
+need `metadata.namespace = null`.
+
 ## workload
 
 A long-running workload: a Namespace and a Deployment named after the

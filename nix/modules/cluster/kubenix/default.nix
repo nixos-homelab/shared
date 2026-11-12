@@ -1,4 +1,4 @@
-{ inputs }:
+{ self, inputs }:
 {
   lib,
   pkgs,
@@ -8,17 +8,23 @@
 let
   # kubenix on this nixpkgs, through its overlay
   inherit (inputs.kubenix.overlays.default pkgs pkgs) kubenix;
+  crds = self.lib.crds.pinned pkgs;
   evaluated =
     (kubenix.evalModules {
       modules = [
         (
-          { kubenix, ... }:
+          { kubenix, ... }@cluster:
           {
             imports = [
               kubenix.modules.k8s
               kubenix.modules.submodules
             ];
             kubernetes.version = lib.versions.majorMinor config.services.k3s.package.version;
+            # Typed from the pinned CRDs; a module adds the types of the CRDs it installs here
+            kubernetes.customTypes = lib.concatMap self.lib.crd2types.customTypes (
+              crds.gatewayAPI.crds ++ crds.cilium.crds ++ crds.clusterNetworkPolicy.crds
+            );
+            kubernetes.customTypesModuleDefinesCRDSpec = false;
             submodules.imports = [ ./workload.nix ];
             # The cluster-wide settings still come from kubetree.workload-macros until the hosts set them in kubenix
             submodules.defaults =
@@ -26,6 +32,14 @@ let
                 wm = config.kubetree.workload-macros;
               in
               [
+                # The cluster's custom types reach every submodule
+                {
+                  features = [ "k8s" ];
+                  default.kubernetes = {
+                    inherit (cluster.config.kubernetes) customTypes;
+                    customTypesModuleDefinesCRDSpec = false;
+                  };
+                }
                 {
                   features = [ "pod-spec" ];
                   default.submodule.args.securityContext = lib.mapAttrs (_: lib.mkDefault) wm.securityContext;

@@ -187,39 +187,7 @@ in
           inherit hash;
         }
       );
-      # The Cilium operator creates its CRDs at runtime, so the manifests don't carry them
-      ciliumCRDs = pinned "cilium-crds" pins."cilium/cilium" (
-        hash:
-        pkgs.fetchFromGitHub {
-          owner = "cilium";
-          repo = "cilium";
-          rev = pins."cilium/cilium";
-          sparseCheckout = [ "pkg/k8s/apis/cilium.io/client/crds/v2" ];
-          inherit hash;
-        }
-      );
-      # The CRD of ClusterNetworkPolicy, which networkPolicies emits
-      clusterNetworkPolicyCRD =
-        pinned "clusternetworkpolicy-crd" pins."kubernetes-sigs/network-policy-api"
-          (
-            hash:
-            pkgs.fetchurl {
-              url = "https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/${
-                pins."kubernetes-sigs/network-policy-api"
-              }/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml";
-              inherit hash;
-            }
-          );
-      # Gateway API's CRDs, which a CNI module installs (networking's cilium does)
-      gatewayAPICRDs = pinned "gateway-api-experimental-install" pins."kubernetes-sigs/gateway-api" (
-        hash:
-        pkgs.fetchurl {
-          url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/${
-            pins."kubernetes-sigs/gateway-api"
-          }/experimental-install.yaml";
-          inherit hash;
-        }
-      );
+      inherit (self.lib.crds.pinned pkgs) cilium clusterNetworkPolicy gatewayAPI;
       manifests = config.kubetree.k3s.payload.manifests;
       # What k3s imports at start (k3s' own airgap images aside, which carry no name)
       preloaded = pkgs.writeText "preloaded-images" (
@@ -238,9 +206,9 @@ in
             ${toString ../../.github/pins.lock} = lib.listToAttrs (
               map (pin: lib.nameValuePair pin.key pin.unlocked) [
                 kubernetesSchemas
-                ciliumCRDs
-                clusterNetworkPolicyCRD
-                gatewayAPICRDs
+                cilium
+                clusterNetworkPolicy
+                gatewayAPI
               ]
             );
           };
@@ -257,8 +225,8 @@ in
           yq ea -N '(select(.kind == "List") | .items[]), select(.kind != "List")
             | select(.kind == "CustomResourceDefinition")' "$f" -s '"crds/" + .metadata.name + ".yaml"'
         done
-        cp ${ciliumCRDs.src}/pkg/k8s/apis/cilium.io/client/crds/v2/*.yaml ${clusterNetworkPolicyCRD.src} crds/
-        yq e -N 'select(.kind == "CustomResourceDefinition")' ${gatewayAPICRDs.src} -s '"crds/" + .metadata.name + ".yaml"'
+        cp ${cilium.src}/pkg/k8s/apis/cilium.io/client/crds/v2/*.yaml ${clusterNetworkPolicy.src} crds/
+        yq e -N 'select(.kind == "CustomResourceDefinition")' ${gatewayAPI.src} -s '"crds/" + .metadata.name + ".yaml"'
         (cd schemas && FILENAME_FORMAT='{fullgroup}-{kind}-{version}' \
           python3 ${pkgs.kubeconform.src}/scripts/openapi2jsonschema.py ../crds/*.yaml >/dev/null)
         # yannh's schemas leave out CustomResourceDefinition itself
