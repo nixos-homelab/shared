@@ -13,10 +13,12 @@ let
     "nullable"
     "x-kubernetes-int-or-string"
     "x-kubernetes-preserve-unknown-fields"
+    "x-kubernetes-list-type"
+    "x-kubernetes-list-map-keys"
   ];
   # What the types leave to the API server: value validations (a structural schema allows only those under anyOf and
-  # oneOf), defaults it fills in, and how server-side apply merges. Only what the pinned CRDs use, so a new one gets
-  # looked at
+  # oneOf), defaults it fills in, and how server-side apply merges maps. Only what the pinned CRDs use, so a new one
+  # gets looked at
   ignored = [
     "anyOf"
     "oneOf"
@@ -32,8 +34,6 @@ let
     "minProperties"
     "maxProperties"
     "x-kubernetes-validations"
-    "x-kubernetes-list-type"
-    "x-kubernetes-list-map-keys"
     "x-kubernetes-map-type"
   ];
   scalars = {
@@ -90,21 +90,91 @@ let
           scalars.${schema.type or ""} or types.anything;
     in
     if schema.nullable or false then types.nullOr type else type;
+  # The key of a list of objects the API server merges by one field, as kubenix keys the lists of its core types
+  keyOf =
+    schema:
+    let
+      keys = schema.x-kubernetes-list-map-keys or [ ];
+    in
+    if
+      schema.x-kubernetes-list-type or null == "map"
+      && lib.length keys == 1
+      && (schema.items.properties or { }) ? ${lib.head keys}
+    then
+      lib.head keys
+    else
+      null;
+  # Such a list as an attribute set by that key, which takes lists too: their items keep their order, ahead of the
+  # rest. Back to a list on the way out
+  keyedOf =
+    key: items:
+    types.coercedTo (types.listOf types.attrs)
+      (
+        list:
+        lib.listToAttrs (
+          lib.imap0 (
+            i: item:
+            lib.nameValuePair (toString
+              item.${key} or (throw "crd2types: a list item without its key ${key}")
+            ) (item // { _priority = i; })
+          ) list
+        )
+      )
+      (
+        types.attrsOf (
+          types.submodule (
+            { name, ... }:
+            lib.optionalAttrs (items.x-kubernetes-preserve-unknown-fields or false) {
+              freeformType = types.attrsOf types.anything;
+            }
+            // {
+              options = optionsOf items // {
+                _priority = mkOption {
+                  type = types.nullOr types.int;
+                  default = null;
+                  internal = true;
+                };
+              };
+              config.${key} = lib.mkOverride 1002 (
+                if items.properties.${key}.type or null == "integer" then lib.toInt name else name
+              );
+            }
+          )
+        )
+      );
+  toList =
+    attrs:
+    map (item: removeAttrs item [ "_priority" ]) (
+      lib.sort (a: b: a._priority != null && (b._priority == null || a._priority < b._priority)) (
+        lib.attrValues attrs
+      )
+    );
   optionsOf =
     schema:
     lib.mapAttrs (
       name: property:
+      let
+        key = keyOf property;
+        type = if key == null then typeOf property else keyedOf key property.items;
+        apply = lib.optionalAttrs (key != null) { apply = lib.mapNullable toList; };
+      in
       if lib.elem name (schema.required or [ ]) then
-        mkOption {
-          description = property.description or "";
-          type = typeOf property;
-        }
+        mkOption (
+          {
+            description = property.description or "";
+            inherit type;
+          }
+          // apply
+        )
       else
-        mkOption {
-          description = property.description or "";
-          type = types.nullOr (typeOf property);
-          default = null;
-        }
+        mkOption (
+          {
+            description = property.description or "";
+            type = types.nullOr type;
+            default = null;
+          }
+          // apply
+        )
     ) (schema.properties or { });
   # kubenix's attribute names of resource types: the plural, cased like the kind (cSIDrivers)
   attrName =
@@ -125,9 +195,11 @@ in
     per served version, for `kubernetes.customTypesModuleDefinesCRDSpec =
     false`: each module types the fields of the resource besides
     `apiVersion`, `kind` and `metadata`, which kubenix types itself.
-    Optional fields default to null, which kubenix leaves out. Value
-    validations, defaults and list merge strategies stay with the API
-    server. Throws on any other schema construct, naming where it is, so a
+    Optional fields default to null, which kubenix leaves out. A list the
+    API server merges by one key (`x-kubernetes-list-type: map`) is an
+    attribute set by that key, as kubenix has it for its core types; a
+    list still works there. Value validations and defaults stay with the
+    API server. Throws on any other schema construct, naming where it is, so a
     CRD that starts using one fails evaluation.
 
     # Arguments

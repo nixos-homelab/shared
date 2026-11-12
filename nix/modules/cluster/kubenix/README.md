@@ -19,7 +19,18 @@ submodule gets them. Their attribute names are kubenix's: the plural cased
 like the kind (`gateways`, `hTTPRoutes`, `ciliumNetworkPolicies`,
 `certificates`, `clusterIssuers`). Optional fields default to null and are
 left out; value validations (patterns, bounds, CEL rules) stay with the
-API server. A CRD that starts using a schema construct crd2types doesn't
+API server. A list the CRD merges by one key takes an attribute set by
+that key, like the lists kubenix keys in its core types: Gateway
+listeners by `name`, so an instance changes one listener of its Gateway
+(`mkForce` where the workload sets the field already):
+
+```nix
+homelab.kubernetes.submodules.instances.grafana.config.kubernetes.resources.gateways.grafana.spec.listeners.grafana.port =
+  lib.mkForce 8443;
+```
+
+A list still works there; its items keep their order, ahead of those
+given by key. A CRD that starts using a schema construct crd2types doesn't
 know fails evaluation, naming where.
 
 ```nix
