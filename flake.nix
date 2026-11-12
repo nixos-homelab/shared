@@ -144,6 +144,7 @@
                 rootDoc = ./README.md;
                 pathMap = {
                   workload-macros = ./nix/modules/workload-macros/README.md;
+                  kubenix = ./nix/modules/cluster/kubenix/README.md;
                 };
               };
             };

@@ -19,6 +19,26 @@ let
               kubenix.modules.submodules
             ];
             kubernetes.version = lib.versions.majorMinor config.services.k3s.package.version;
+            submodules.imports = [ ./workload.nix ];
+            # The cluster-wide settings still come from kubetree.workload-macros until the hosts set them in kubenix
+            submodules.defaults =
+              let
+                wm = config.kubetree.workload-macros;
+              in
+              [
+                {
+                  features = [ "pod-spec" ];
+                  default.submodule.args.securityContext = lib.mapAttrs (_: lib.mkDefault) wm.securityContext;
+                }
+                {
+                  name = "workload";
+                  default.submodule.args.gateway = {
+                    domain = lib.mkDefault wm.domain;
+                    className = lib.mkDefault wm.gatewayClassName;
+                    issuer = lib.mkDefault wm.acmeProvider;
+                  };
+                }
+              ];
           }
         )
         config.homelab.kubernetes

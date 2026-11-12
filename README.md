@@ -7,7 +7,8 @@ provides shared services used across those repos: a database, a
 dashboard, TLS, and storage.
 
 See the [workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/) for the custom
-resource kinds `kubetree.resources` accepts, and
+resource kinds `kubetree.resources` accepts, [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/)
+for the typed resources and submodules of `homelab.kubernetes` that replace them, and
 [the options reference](https://nixos-homelab.github.io/shared/options/) for the full list of module options.
 
 ## Setup
@@ -41,6 +42,8 @@ resource kinds `kubetree.resources` accepts, and
 - **cluster**: bootstraps k3s and `kubetree`, and provides the shared
   `homelab.cluster.*` options (pod/service CIDRs, debug tools, backup
   aggregation) every other module in this ecosystem builds on.
+- **cluster** also takes kubenix configuration in `homelab.kubernetes`, with
+  the `workload` submodule -- see [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/).
 - **workload-macros**: the `WorkloadMacro`/`DeploymentMacro`/etc. resource
   kinds -- see [the workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/).
 - **homepage**: the [homepage](https://gethomepage.dev) dashboard, with a

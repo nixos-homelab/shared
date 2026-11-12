@@ -53,24 +53,29 @@ in
     ];
     services.k3s.images = [ image ];
     homelab.cluster.backup.volumes.redis.redis = [ "/dump.rdb" ];
-    kubetree.resources.redis = {
-      workload = {
-        apiVersion = "cluster.local";
-        kind = "WorkloadMacro";
-        metadata.name = "redis";
-        spec = {
-          dataPath = "/data";
-          podSpecMacro = {
-            mainContainer = {
-              image = image.ref;
-              imagePullPolicy = "Never";
-              portsByName.redis = 6379;
-              livenessProbe.tcpSocket.port = "redis";
-              readinessProbe.tcpSocket.port = "redis";
-            };
-          };
+    homelab.kubernetes.submodules.instances.redis = {
+      submodule = "workload";
+      args = {
+        dataPath = "/data";
+        ports.redis = 6379;
+        container = {
+          image = image.ref;
+          imagePullPolicy = "Never";
+          livenessProbe.tcpSocket.port = "redis";
+          readinessProbe.tcpSocket.port = "redis";
         };
       };
+    };
+    # The network policies stay with kubetree until networking expands them from kubenix
+    kubetree.resources.redis.netpol = {
+      apiVersion = "cluster.local";
+      kind = "NetpolMacro";
+      metadata = {
+        name = "redis";
+        namespace = "redis";
+        labels."app.kubernetes.io/name" = "redis";
+      };
+      spec.ports = [ 6379 ];
     };
   };
 }
