@@ -9,7 +9,7 @@ Where a macro maps to one real resource (`DeploymentMacro` →
 `Deployment`, `CronJobMacro` → `CronJob`, `ServiceMacro` → `Service`,
 `podSpecMacro` → a Pod spec, etc.), it decorates rather than replaces:
 only `podSpecMacro`/`allowIngress`/`allowEgress` (plus
-`dataPath`/`ingressPort` on `WorkloadMacro`) are intercepted and lifted
+`dataPath`/`ingressPort`/`service`/`netpol` on `WorkloadMacro`) are intercepted and lifted
 into place. Everything else in `spec` passes straight through untouched,
 as the real Kind's own field. `GatewayMacro` is the one exception -- see
 below.
@@ -47,6 +47,13 @@ Container ports declared under `podSpecMacro.mainContainer.portsByName`
 also get a `ServiceMacro` and a `NetpolMacro` automatically -- the latter
 implemented in [homelab-networking's Cilium
 module](https://github.com/nixos-homelab/networking/blob/main/docs/cilium.md).
+`service` and `netpol` are merged over those two resources, so a workload
+changes them there instead of declaring a second object of the same name:
+
+```nix
+spec.service.spec.type = "LoadBalancer";
+spec.netpol.spec.ports = [ 8443 ];
+```
 
 ## DeploymentMacro / DaemonSetMacro / CronJobMacro / JobMacro
 

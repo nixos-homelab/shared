@@ -50,6 +50,8 @@ let
           "dataPath"
           "ingressPort"
           "podSpecMacro"
+          "service"
+          "netpol"
         ]
       );
 in
@@ -112,7 +114,7 @@ rec {
       })
       ++ (
         lib.optionals (length (attrNames portsByName) > 0) [
-          {
+          (lib.recursiveUpdate {
             inherit metadata;
             apiVersion = "cluster.local";
             kind = "ServiceMacro";
@@ -127,13 +129,13 @@ rec {
                 }
                 // lib.optionalAttrs (hasAttr "protocol" portSpec) { protocol = portSpec.protocol; }
             ) portsByName;
-          }
-          {
+          } (dotPath "spec.service" { }))
+          (lib.recursiveUpdate {
             inherit metadata;
             apiVersion = "cluster.local";
             kind = "NetpolMacro";
             spec.ports = netpolPorts;
-          }
+          } (dotPath "spec.netpol" { }))
         ]
         ++ lib.optional (ingressPort != null) ({
           inherit metadata;
