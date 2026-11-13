@@ -7,7 +7,6 @@
   ...
 }:
 let
-  ccfg = config.homelab.cluster;
   # k8sss' own image refs, preloaded from images.lock
   refs = map (image: image.default) (lib.attrValues options.k8sss.images);
   images = self.lib.images.locked pkgs ./images.lock refs;
@@ -22,7 +21,7 @@ in
     k8sss.images = lib.mapAttrs (_: image: lib.mkDefault (images.refFor image.default)) options.k8sss.images;
     services.k3s.images = images.images;
     homelab.cluster.imageLocks.${toString ./images.lock} = refs;
-    k8sss.dnsNames = [ "${config.networking.hostName}.${ccfg.domain}" ];
+    k8sss.dnsNames = [ "${config.networking.hostName}.${config.homelab.workloads.domain}" ];
     # Next to the objects k8sss puts in the manifest k8sss: who may reach the NodePort of k8sss, the pods labeled
     # `cluster.local/k8sss-egress: allow` and the world
     homelab.kubernetes.submodules.instances.k8sss = lib.mkIf config.k8sss.enable {

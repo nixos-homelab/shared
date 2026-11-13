@@ -220,13 +220,13 @@ in
                     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+kj02ez01d/NBAbS3ybonaf76LMymdbEblV9pHEwZj admin@example.org"
                   ];
                 };
-                kubetree.workload-macros = {
+                homelab.workloads = {
+                  domain = "example.org";
                   acmeProvider = "letsencrypt-staging";
                   gatewayClassName = "example";
                 };
                 homelab.cluster = {
                   enable = true;
-                  domain = "example.org";
                   dataDir = "/var/lib/rancher/k3s";
                 };
                 homelab.cert-manager =

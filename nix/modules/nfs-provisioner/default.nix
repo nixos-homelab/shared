@@ -39,8 +39,8 @@ in
     server = lib.mkOption {
       description = "NFS server to use as persistent data store";
       type = lib.types.str;
-      defaultText = "\${config.networking.hostName}.\${config.homelab.cluster.domain}";
-      default = "${config.networking.hostName}.${config.homelab.cluster.domain}";
+      defaultText = "\${config.networking.hostName}.\${config.homelab.workloads.domain}";
+      default = "${config.networking.hostName}.${config.homelab.workloads.domain}";
     };
     path = lib.mkOption {
       description = "Export on the NFS server to use as the root";

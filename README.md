@@ -42,8 +42,11 @@ for the typed resources and submodules of `homelab.kubernetes` that replace them
 - **cluster**: bootstraps k3s and `kubetree`, and provides the shared
   `homelab.cluster.*` options (pod/service CIDRs, debug tools, backup
   aggregation) every other module in this ecosystem builds on.
-- **cluster** also takes kubenix configuration in `homelab.kubernetes`, with
-  the `workload` submodule -- see [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/).
+- **workloads**: the settings every workload shares (`homelab.workloads`:
+  domain, gateway class, ACME issuer, pod user and group) and kubenix
+  configuration in `homelab.kubernetes`, with the `workload` submodule --
+  see [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/).
+  `cluster` imports it and sends what it holds to k3s.
 - **workload-macros**: the `WorkloadMacro`/`DeploymentMacro`/etc. resource
   kinds -- see [the workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/).
 - **homepage**: the [homepage](https://gethomepage.dev) dashboard, with a

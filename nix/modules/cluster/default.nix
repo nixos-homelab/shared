@@ -60,7 +60,7 @@ let
       lib.optional ccfg.enableIPv4 ccfg.podCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.podCidr6;
     service-cidr =
       lib.optional ccfg.enableIPv4 ccfg.svcCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.svcCidr6;
-    tls-san = "external.${ccfg.domain}";
+    tls-san = "external.${config.homelab.workloads.domain}";
     kube-controller-manager-arg = [
       "allocate-node-cidrs"
     ]
@@ -113,14 +113,6 @@ in
       description = "IPv6 CIDR for the services";
       type = lib.types.str;
     };
-    domain = lib.mkOption {
-      description = "Domain name of the cluster";
-      type = lib.types.str;
-    };
-    acmeProvider = lib.mkOption {
-      description = "The ACME provider that Ingresses should use for obtaining TLS certs";
-      type = lib.types.str;
-    };
     dataDir = lib.mkOption {
       description = "Location of the k3s data directory";
       type = lib.types.str;
@@ -148,7 +140,8 @@ in
   };
   imports = [
     inputs.kubetree.nixosModules.default
-    (import ./kubenix { inherit self inputs; })
+    (import ./kubenix.nix { inherit self inputs; })
+    self.nixosModules.workloads
     self.nixosModules.workload-macros
     inputs.setup-secrets.nixosModules.default
   ];
@@ -157,10 +150,7 @@ in
     services.k3s.enable = true;
     kubetree = {
       kubernetes.enable = true;
-      workload-macros = {
-        enable = true;
-        domain = ccfg.domain;
-      };
+      workload-macros.enable = true;
       k3s.enable = true;
     };
 

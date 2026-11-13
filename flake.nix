@@ -82,6 +82,7 @@
             workload-macros = importApply ./nix/modules/workload-macros {
               inherit self inputs;
             };
+            workloads = importApply ./nix/modules/workloads { inherit self inputs; };
             nfs-provisioner = importApply ./nix/modules/nfs-provisioner { inherit self inputs; };
             postgresql = importApply ./nix/modules/postgresql { inherit self inputs; };
             redis = importApply ./nix/modules/redis { inherit self inputs; };
@@ -134,6 +135,10 @@
                   cluster = [ "homelab.cluster" ];
                   k8sss = [ "homelab.k8sss" ];
                   workload-macros = [ "kubetree.workload-macros" ];
+                  workloads = [
+                    "homelab.workloads"
+                    "homelab.kubernetes"
+                  ];
                   nfs-provisioner = [ "homelab.nfs-provisioner" ];
                   postgresql = [ "homelab.postgresql" ];
                   redis = [ "homelab.redis" ];
@@ -146,7 +151,7 @@
                 rootDoc = ./README.md;
                 pathMap = {
                   workload-macros = ./nix/modules/workload-macros/README.md;
-                  kubenix = ./nix/modules/cluster/kubenix/README.md;
+                  kubenix = ./nix/modules/workloads/README.md;
                 };
               };
             };

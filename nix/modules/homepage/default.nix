@@ -225,7 +225,7 @@ in
                 { value = spec; }
             ) cfg.envByName)
             // {
-              HOMEPAGE_ALLOWED_HOSTS.value = ccfg.domain;
+              HOMEPAGE_ALLOWED_HOSTS.value = config.homelab.workloads.domain;
               PUID.value = "1000";
               PGID.value = "1000";
             };

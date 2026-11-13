@@ -1,4 +1,9 @@
-{ lib, transform, ... }:
+{
+  lib,
+  transform,
+  workloads,
+  ...
+}:
 with builtins;
 let
   mkResourceHelper =
@@ -233,10 +238,10 @@ rec {
             lib.recursiveUpdate
               {
                 securityContext = {
-                  runAsUser = cfg.workload-macros.securityContext.runAsUser;
-                  runAsGroup = cfg.workload-macros.securityContext.runAsGroup;
-                  supplementalGroups = cfg.workload-macros.securityContext.supplementalGroups;
-                  fsGroup = cfg.workload-macros.securityContext.runAsGroup;
+                  runAsUser = workloads.securityContext.runAsUser;
+                  runAsGroup = workloads.securityContext.runAsGroup;
+                  supplementalGroups = workloads.securityContext.supplementalGroups;
+                  fsGroup = workloads.securityContext.runAsGroup;
                 };
                 containersByName = {
                   "${name}" =
@@ -297,9 +302,9 @@ rec {
       subdomain = dotPath "spec.subdomain" (metadata.name);
       hostname =
         if subdomain == null then
-          cfg.workload-macros.domain
+          workloads.domain
         else
-          "${subdomain}.${cfg.workload-macros.domain}";
+          "${subdomain}.${workloads.domain}";
     in
     {
       apiVersion = "v1";
@@ -309,10 +314,10 @@ rec {
           apiVersion = "gateway.networking.k8s.io/v1";
           kind = "Gateway";
           metadata = metadata // {
-            annotations."cert-manager.io/cluster-issuer" = cfg.workload-macros.acmeProvider;
+            annotations."cert-manager.io/cluster-issuer" = workloads.acmeProvider;
           };
           spec = {
-            gatewayClassName = cfg.workload-macros.gatewayClassName;
+            gatewayClassName = workloads.gatewayClassName;
             listeners = [
               {
                 inherit hostname;
@@ -432,7 +437,7 @@ rec {
                     scriptPath = "/scripts/${builtins.substring 0 8 (builtins.hashString "sha256" (script))}.sh";
                   in
                   {
-                    image = cfg.workload-macros.containerUtils;
+                    image = workloads.containerUtils;
                     imagePullPolicy = "Never";
                     command = [ "bash" ];
                     args = [ "${scriptPath}" ];

@@ -1,5 +1,8 @@
 # kubenix
 
+The `workloads` module holds the settings every workload shares, in
+`homelab.workloads` (`domain`, `gatewayClassName`, `acmeProvider`,
+`containerUtils`, `securityContext`), and the submodules below.
 `homelab.kubernetes` takes [kubenix](https://github.com/hall/kubenix)
 configuration of the cluster: typed Kubernetes resources, so a misspelled
 field fails at evaluation and names where it was set. Each submodule
@@ -100,7 +103,7 @@ lets pods labeled `cluster.local/<workload>-egress: allow` reach the
 intent into a NetworkPolicy and a ClusterNetworkPolicy.
 - `securityContext`: `runAsUser`, `runAsGroup` (also the `fsGroup`) and
   `supplementalGroups` of the pod. They default to
-  `kubetree.workload-macros.securityContext`, as `gateway.domain`,
+  `homelab.workloads.securityContext`, as `gateway.domain`,
   `gateway.className` and `gateway.issuer` default to the `domain`,
   `gatewayClassName` and `acmeProvider` there.
 
