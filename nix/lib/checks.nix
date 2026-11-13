@@ -105,8 +105,8 @@ let
         ingress."[]"._transformers = [ transformToPortsFlattened ];
         egress."[]"._transformers = [ transformToPortsFlattened ];
       };
-      # The same for the policies of kubenix workloads, which networking's cilium module adds when Cilium runs
-      workloadPolicies =
+      # The same for the policies of kubenix pods, which networking's cilium module adds when Cilium runs
+      podPolicies =
         {
           lib,
           name,
@@ -116,14 +116,20 @@ let
         }:
         let
           inherit (config.kubernetes) namespace;
-          ports = lib.mapAttrsToList (_: p: {
-            port = p.containerPort;
-            protocol = if p.protocol == null then "TCP" else p.protocol;
-          }) args.ports;
+          ports = map (
+            n:
+            let
+              p = args.ports.${n};
+            in
+            {
+              port = p.containerPort;
+              protocol = if p.protocol == null then "TCP" else p.protocol;
+            }
+          ) args.policyPorts;
           egressLabel = "cluster.local/${name}-egress";
         in
         {
-          kubernetes.resources = lib.mkIf (args.ports != { }) {
+          kubernetes.resources = lib.mkIf (ports != [ ]) {
             networkPolicies."${name}-from-pod".spec = {
               podSelector.matchLabels."app.kubernetes.io/name" = name;
               policyTypes = [ "Ingress" ];
@@ -171,8 +177,8 @@ let
     {
       config.homelab.kubernetes.submodules.defaults = lib.mkIf (!(config.homelab.cilium.enable or false)) [
         {
-          name = "workload";
-          default = workloadPolicies;
+          features = [ "pod-spec" ];
+          default = podPolicies;
         }
       ];
       config.kubetree.transformers = lib.mkIf (!(config.kubetree.cilium.enable or false)) {

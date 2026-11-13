@@ -209,6 +209,8 @@ in
               ];
               allowIngress = [ "apiserver" ];
               ports.https = 8443;
+              # Only the API server calls it (`allowIngress`)
+              policyPorts = [ ];
               container = {
                 image = "${webhookImage.buildArgs.name}:${webhookImage.imageTag}";
                 imagePullPolicy = "Never";

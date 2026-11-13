@@ -85,17 +85,19 @@ homelab.kubernetes.submodules.instances.grafana = {
   (the bare domain when `gateway.subdomain = null`) routing to this
   Service port, with a redirect from HTTP; allows ingress from `gateway`.
   `httpRouteRules` go ahead of the catch-all rule.
+- `policyPorts`: the names of the `ports` other pods may reach, all of
+  them by default; see below.
 - `allowIngress`/`allowEgress`: the pod labels
   `cluster.local/<workload>-ingress`/`-egress: allow`, for the label
   selectors of the network policies.
 
 The workload holds no network policies of its own. The module of the CNI
-adds them to every instance through `submodules.defaults`: with `ports`,
+adds them to every instance that runs pods through `submodules.defaults`:
 [networking's
 cilium](https://github.com/nixos-homelab/networking/blob/main/nix/modules/cilium/README.md)
-lets pods labeled `cluster.local/<workload>-egress: allow` reach them. The
-manifests check, which has no CNI, expands the same intent into a
-NetworkPolicy and a ClusterNetworkPolicy.
+lets pods labeled `cluster.local/<workload>-egress: allow` reach the
+`policyPorts`. The manifests check, which has no CNI, expands the same
+intent into a NetworkPolicy and a ClusterNetworkPolicy.
 - `securityContext`: `runAsUser`, `runAsGroup` (also the `fsGroup`) and
   `supplementalGroups` of the pod. They default to
   `kubetree.workload-macros.securityContext`, as `gateway.domain`,
@@ -120,8 +122,8 @@ every submodule that runs pods; `submodules.defaults` with
 ## deployment, daemonset, job, cronjob, script
 
 The pod alone, in the resource that runs it, named after the instance:
-`container`, `ports`, `allowIngress`, `allowEgress` and `securityContext`
-as in the workload, with no Namespace, Service or policies. A Deployment
+`container`, `ports`, `policyPorts`, `allowIngress`, `allowEgress` and
+`securityContext` as in the workload, with no Namespace or Service. A Deployment
 is recreated on change; the pod of a Job or CronJob isn't restarted
 unless the instance sets `restartPolicy`. `cronjob` takes the `schedule`.
 

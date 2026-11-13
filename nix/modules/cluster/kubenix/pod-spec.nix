@@ -50,6 +50,12 @@ in
           };
         };
       };
+      policyPorts = mkOption {
+        description = "Names of the `ports` other pods may reach: the network policies of the CNI module let pods labeled `cluster.local/<name>-egress: allow` connect to them. None, no policies.";
+        type = types.listOf (types.enum (lib.attrNames args.ports));
+        default = lib.attrNames args.ports;
+        defaultText = lib.literalExpression "lib.attrNames args.ports";
+      };
       allowIngress = mkOption {
         description = "Workloads whose pods may connect to this one, as the label `cluster.local/<workload>-ingress: allow` on the pods.";
         type = types.listOf types.str;
