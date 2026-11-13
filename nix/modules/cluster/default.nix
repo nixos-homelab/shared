@@ -9,6 +9,7 @@ let
   ccfg = config.homelab.cluster;
   flakePkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
   ipv4 = self.lib.ipv4;
+  crds = self.lib.crds.pinned pkgs;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   node = config.networking.hostName;
   drainedAnnotation = "cluster.local/drained-for-shutdown";
@@ -140,13 +141,20 @@ in
   };
   imports = [
     inputs.kubetree.nixosModules.default
-    (import ./kubenix.nix { inherit self inputs; })
     self.nixosModules.workloads
     self.nixosModules.workload-macros
     inputs.setup-secrets.nixosModules.default
   ];
   config = lib.mkIf ccfg.enable {
     systemd.services."setup-secrets".after = [ "k3s.service" ];
+    homelab.kubernetes.kubernetes = {
+      version = lib.versions.majorMinor config.services.k3s.package.version;
+      # For the Cilium and ClusterNetworkPolicy objects that networking and shared write
+      customTypes = lib.concatMap self.lib.crd2types.customTypes (
+        crds.cilium.crds ++ crds.clusterNetworkPolicy.crds
+      );
+    };
+    services.k3s.manifests = lib.mapAttrs (_: content: { inherit content; }) config.homelab.workloads.manifests;
     services.k3s.enable = true;
     kubetree = {
       kubernetes.enable = true;

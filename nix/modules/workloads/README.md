@@ -16,10 +16,10 @@ replace the workload macros. It runs next to the
 The custom resources are typed too, from the CRDs:
 [`lib.crd2types.customTypes`](https://nixos-homelab.github.io/shared/lib/) turns a
 CustomResourceDefinition into kubenix `customTypes`, at evaluation, so a
-bump of a CRD retypes its resources. The cluster has Gateway API's
-experimental channel, Cilium's and ClusterNetworkPolicy, as pinned in
-`lib.crds.pinned`; the cert-manager module adds those of its chart. Every
-submodule gets them. Their attribute names are kubenix's: the plural cased
+bump of a CRD retypes its resources. This module types Gateway API's
+experimental channel, the `cluster` module Cilium's and
+ClusterNetworkPolicy, as pinned in `lib.crds.pinned`; the cert-manager
+module adds those of its chart. Every submodule gets them. Their attribute names are kubenix's: the plural cased
 like the kind (`gateways`, `hTTPRoutes`, `ciliumNetworkPolicies`,
 `certificates`, `clusterIssuers`). Optional fields default to null and are
 left out; value validations (patterns, bounds, CEL rules) stay with the

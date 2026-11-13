@@ -1,4 +1,4 @@
-{ self, ... }:
+{ self, inputs, ... }:
 {
   lib,
   pkgs,
@@ -8,6 +8,18 @@
 let
   cfg = config.homelab.workloads;
   container-utils = self.packages.${pkgs.stdenv.hostPlatform.system}.container-utils;
+  # kubenix on this nixpkgs, through its overlay
+  inherit (inputs.kubenix.overlays.default pkgs pkgs) kubenix;
+  evaluated = (kubenix.evalModules { modules = [ config.homelab.kubernetes ]; }).config;
+  instances = evaluated.submodules.instances;
+  id =
+    object:
+    "${object.apiVersion}/${object.kind}/${object.metadata.namespace or ""}/${object.metadata.name}";
+  # Instances pass their objects on to the cluster's own; those go in the instance's manifest only
+  ofInstances = lib.concatMap (instance: map id instance.config.kubernetes.objects) (
+    lib.attrValues instances
+  );
+  own = lib.filter (object: !lib.elem (id object) ofInstances) evaluated.kubernetes.objects;
 in
 {
   # https://github.com/hercules-ci/flake-parts/pull/251
@@ -49,17 +61,33 @@ in
           default = [ 100 ];
         };
       };
+      manifests = lib.mkOption {
+        description = "The objects of `homelab.kubernetes` by manifest: those of each submodule instance under its name, the others under `kubenix`, for the runner to apply.";
+        type = lib.types.attrsOf (lib.types.listOf lib.types.attrs);
+        readOnly = true;
+        internal = true;
+      };
     };
     kubernetes = lib.mkOption {
-      description = "kubenix configuration of the cluster, with the submodules of this module.";
+      description = "kubenix configuration of the cluster, with the submodules of this module and the Gateway API types. The runner sets `kubernetes.version`.";
       type = lib.types.deferredModule;
       default = { };
     };
   };
+  config.homelab.workloads.manifests =
+    lib.mapAttrs (_: instance: instance.config.kubernetes.objects) instances
+    // lib.optionalAttrs (own != [ ]) { kubenix = own; };
   config.homelab.kubernetes =
     { kubenix, config, ... }:
     {
-      imports = [ kubenix.modules.submodules ];
+      imports = [
+        kubenix.modules.k8s
+        kubenix.modules.submodules
+      ];
+      # Typed from the pinned CRDs, as the `workload` submodule writes Gateways and HTTPRoutes; a module adds the types
+      # of the CRDs it installs here
+      kubernetes.customTypes = lib.concatMap self.lib.crd2types.customTypes (self.lib.crds.pinned pkgs).gatewayAPI.crds;
+      kubernetes.customTypesModuleDefinesCRDSpec = false;
       submodules.imports = [
         ./cronjob.nix
         ./daemonset.nix
