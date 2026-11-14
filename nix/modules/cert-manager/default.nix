@@ -20,6 +20,8 @@ let
       podLabels = {
         "cluster.local/apiserver-egress" = "allow";
         "cluster.local/internet-egress" = "allow";
+        # The controller calls the webhook (`webhook` below)
+        "cluster.local/cert-manager-webhook-egress" = "allow";
       };
       webhook.podLabels."cluster.local/apiserver-egress" = "allow";
       cainjector.podLabels."cluster.local/apiserver-egress" = "allow";
@@ -102,17 +104,6 @@ in
       config = {
         kubernetes.resources =
           let
-            controller = {
-              "app.kubernetes.io/name" = "cert-manager";
-              "app.kubernetes.io/component" = "controller";
-              "app.kubernetes.io/instance" = "cert-manager";
-            };
-            webhook = {
-              "app.kubernetes.io/name" = "webhook";
-              "app.kubernetes.io/component" = "webhook";
-              "app.kubernetes.io/instance" = "cert-manager";
-            };
-            toPorts = [ { ports = [ { port = "10250"; } ]; } ];
             acmeIssuer = server: privateKey: webhook-config: {
               metadata.namespace = null;
               spec.acme = {
@@ -138,36 +129,6 @@ in
           in
           {
             namespaces.cert-manager.metadata.namespace = null;
-            ciliumNetworkPolicies = {
-              controller-to-webhook = {
-                metadata.labels = controller;
-                spec = {
-                  endpointSelector.matchLabels = controller;
-                  egress = [
-                    {
-                      toEndpoints = [ { matchLabels = webhook; } ];
-                      inherit toPorts;
-                    }
-                  ];
-                };
-              };
-              webhook-from-controller = {
-                metadata.labels = webhook;
-                spec = {
-                  endpointSelector.matchLabels = webhook;
-                  ingress = [
-                    {
-                      fromEntities = [ "kube-apiserver" ];
-                      inherit toPorts;
-                    }
-                    {
-                      fromEndpoints = [ { matchLabels = controller; } ];
-                      inherit toPorts;
-                    }
-                  ];
-                };
-              };
-            };
             clusterIssuers = {
               selfsigned = {
                 metadata.namespace = null;
@@ -199,6 +160,20 @@ in
             };
           };
         submodules.instances = {
+          # The webhook of the release: the controller and the API server call it
+          webhook = {
+            name = "cert-manager-webhook";
+            submodule = "pods";
+            args = {
+              selector = {
+                "app.kubernetes.io/name" = "webhook";
+                "app.kubernetes.io/component" = "webhook";
+                "app.kubernetes.io/instance" = "cert-manager";
+              };
+              ports.https = 10250;
+              apiServerPorts = [ "https" ];
+            };
+          };
           webhook-libdns = {
             name = "cert-manager-webhook-libdns";
             submodule = "deployment";

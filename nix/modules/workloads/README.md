@@ -15,9 +15,9 @@ The custom resources are typed too, from the CRDs:
 [`lib.crd2types.customTypes`](https://nixos-homelab.github.io/shared/lib/) turns a
 CustomResourceDefinition into kubenix `customTypes`, at evaluation, so a
 bump of a CRD retypes its resources. This module types Gateway API's
-experimental channel, the `cluster` module Cilium's and
-ClusterNetworkPolicy, as pinned in `lib.crds.pinned`; the cert-manager
-module adds those of its chart. Every submodule gets them. Their attribute names are kubenix's: the plural cased
+experimental channel, as pinned in `lib.crds.pinned`; the cert-manager
+module adds those of its chart, and the module of the CNI its own
+(networking's `cilium-crds`). Every submodule gets them. Their attribute names are kubenix's: the plural cased
 like the kind (`gateways`, `hTTPRoutes`, `ciliumNetworkPolicies`,
 `certificates`, `clusterIssuers`). Optional fields default to null and are
 left out; value validations (patterns, bounds, CEL rules) stay with the
@@ -88,17 +88,19 @@ homelab.kubernetes.submodules.instances.grafana = {
   `httpRouteRules` go ahead of the catch-all rule.
 - `policyPorts`: the names of the `ports` other pods may reach, all of
   them by default; see below.
+- `apiServerPorts`, `worldPorts`: the names of the `ports` the API server
+  and the world outside the cluster may reach, none by default.
 - `allowIngress`/`allowEgress`: the pod labels
   `cluster.local/<workload>-ingress`/`-egress: allow`, for the label
   selectors of the network policies.
 
-The workload holds no network policies of its own. The module of the CNI
-adds them to every instance that runs pods through `submodules.defaults`:
+The workload holds no network policies of its own, only this intent
+(`policy.nix`). The module of the CNI turns it into policies for every
+instance with the feature `pod-policy` through `submodules.defaults`:
 [networking's
 cilium](https://github.com/nixos-homelab/networking/blob/main/nix/modules/cilium/README.md)
 lets pods labeled `cluster.local/<workload>-egress: allow` reach the
-`policyPorts`. The manifests check, which has no CNI, expands the same
-intent into a NetworkPolicy and a ClusterNetworkPolicy.
+`policyPorts`, and so on. Without a CNI module there are none.
 - `securityContext`: `runAsUser`, `runAsGroup` (also the `fsGroup`) and
   `supplementalGroups` of the pod. They default to
   `homelab.workloads.securityContext`, as `gateway.domain`,
@@ -123,8 +125,8 @@ every submodule that runs pods; `submodules.defaults` with
 ## deployment, daemonset, job, cronjob, script
 
 The pod alone, in the resource that runs it, named after the instance:
-`container`, `ports`, `policyPorts`, `allowIngress`, `allowEgress` and
-`securityContext` as in the workload, with no Namespace or Service. A Deployment
+`container`, `ports`, `policyPorts`, `apiServerPorts`, `worldPorts`,
+`allowIngress`, `allowEgress` and `securityContext` as in the workload, with no Namespace or Service. A Deployment
 is recreated on change; the pod of a Job or CronJob isn't restarted
 unless the instance sets `restartPolicy`. `cronjob` takes the `schedule`.
 
@@ -159,6 +161,30 @@ by name: a port number, or the fields of a ServicePort.
 homelab.kubernetes.submodules.instances.alloy = {
   submodule = "service";
   args.ports.web = 3000;
+};
+```
+
+## pods
+
+The policy intent of pods something else runs (a release, a static
+manifest, another module): `ports`, `policyPorts`, `apiServerPorts` and
+`worldPorts` as in the workload, for the pods with the labels `selector`
+in the namespace of the instance, `app.kubernetes.io/name` of the
+instance name unless set. It writes no objects; the CNI module adds the
+policies as for any pod.
+
+```nix
+homelab.kubernetes.submodules.instances.cert-manager.config.submodules.instances.webhook = {
+  name = "cert-manager-webhook";
+  submodule = "pods";
+  args = {
+    selector = {
+      "app.kubernetes.io/name" = "webhook";
+      "app.kubernetes.io/instance" = "cert-manager";
+    };
+    ports.https = 10250;
+    apiServerPorts = [ "https" ];
+  };
 };
 ```
 

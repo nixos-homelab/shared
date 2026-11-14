@@ -94,6 +94,7 @@ in
         ./deployment.nix
         ./job.nix
         ./manifest.nix
+        ./pods.nix
         ./script.nix
         ./service.nix
         ./workload.nix

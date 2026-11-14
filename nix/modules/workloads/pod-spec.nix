@@ -8,53 +8,16 @@
 }:
 let
   inherit (lib) mkOption mkDefault types;
-  port = types.coercedTo types.port (containerPort: { inherit containerPort; }) (
-    types.submodule {
-      options = {
-        containerPort = mkOption {
-          description = "Port the main container listens on";
-          type = types.port;
-        };
-        protocol = mkOption {
-          description = "Protocol of the port, TCP when unset";
-          type = types.nullOr (
-            types.enum [
-              "TCP"
-              "UDP"
-              "SCTP"
-            ]
-          );
-          default = null;
-        };
-      };
-    }
-  );
 in
 {
+  # `ports`, `policyPorts` and the other policy intent
+  imports = [ ./policy.nix ];
   options = {
     submodule.args = {
       container = mkOption {
         description = "The main container, a module of the kubenix Container type. Its name, ports and security context are set here.";
         type = types.deferredModule;
         default = { };
-      };
-      ports = mkOption {
-        description = "Ports of the main container by name: a port number, or `containerPort` and `protocol`.";
-        type = types.attrsOf port;
-        default = { };
-        example = {
-          web = 3000;
-          dns = {
-            containerPort = 53;
-            protocol = "UDP";
-          };
-        };
-      };
-      policyPorts = mkOption {
-        description = "Names of the `ports` other pods may reach: the network policies of the CNI module let pods labeled `cluster.local/<name>-egress: allow` connect to them. None, no policies.";
-        type = types.listOf (types.enum (lib.attrNames args.ports));
-        default = lib.attrNames args.ports;
-        defaultText = lib.literalExpression "lib.attrNames args.ports";
       };
       allowIngress = mkOption {
         description = "Workloads whose pods may connect to this one, as the label `cluster.local/<workload>-ingress: allow` on the pods.";

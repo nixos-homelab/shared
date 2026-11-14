@@ -22,73 +22,18 @@ in
     services.k3s.images = images.images;
     homelab.cluster.imageLocks.${toString ./images.lock} = refs;
     k8sss.dnsNames = [ "${config.networking.hostName}.${config.homelab.workloads.domain}" ];
-    # Next to the objects k8sss puts in the manifest k8sss: who may reach the NodePort of k8sss, the pods labeled
-    # `cluster.local/k8sss-egress: allow` and the world
+    # Next to the objects k8sss puts in the manifest k8sss: who may reach step-ca, the pods labeled
+    # `cluster.local/k8sss-egress: allow` and, through the NodePort, the world. Policies match the port of the pod
+    # (`api`, 9000 in the k8sss module), not the NodePort.
     homelab.kubernetes.submodules.instances.k8sss = lib.mkIf config.k8sss.enable {
       submodule = "manifest";
-      config.kubernetes.resources =
-        let
-          labels."app.kubernetes.io/name" = "k8sss";
-          egressLabel = "cluster.local/k8sss-egress";
-          toPorts = [ { ports = [ { port = toString config.k8sss.nodePort; } ]; } ];
-        in
-        {
-          ciliumClusterwideNetworkPolicies.pod-to-k8sss = {
-            metadata = {
-              inherit labels;
-              namespace = null;
-            };
-            spec = {
-              endpointSelector.matchLabels.${egressLabel} = "allow";
-              egress = [
-                {
-                  toEndpoints = [ { matchLabels = labels // { "k8s:io.kubernetes.pod.namespace" = "k8sss"; }; } ];
-                  inherit toPorts;
-                }
-              ];
-            };
-          };
-          ciliumNetworkPolicies = {
-            k8sss-from-pod = {
-              metadata = { inherit labels; };
-              spec = {
-                endpointSelector.matchLabels = labels;
-                ingress = [
-                  {
-                    fromEndpoints = [
-                      {
-                        matchExpressions = [
-                          {
-                            key = "k8s:io.kubernetes.pod.namespace";
-                            operator = "Exists";
-                          }
-                          {
-                            key = egressLabel;
-                            operator = "In";
-                            values = [ "allow" ];
-                          }
-                        ];
-                      }
-                    ];
-                    inherit toPorts;
-                  }
-                ];
-              };
-            };
-            k8sss = {
-              metadata = { inherit labels; };
-              spec = {
-                endpointSelector.matchLabels = labels;
-                ingress = [
-                  {
-                    fromEntities = [ "world" ];
-                    inherit toPorts;
-                  }
-                ];
-              };
-            };
-          };
+      config.submodules.instances.k8sss = {
+        submodule = "pods";
+        args = {
+          ports.api = 9000;
+          worldPorts = lib.optional (config.k8sss.nodePort != null) "api";
         };
+      };
     };
   };
 }

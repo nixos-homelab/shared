@@ -69,7 +69,7 @@
           inherit hash;
         }
       );
-      inherit (self.lib.crds.pinned pkgs) cilium clusterNetworkPolicy gatewayAPI;
+      inherit (self.lib.crds.pinned pkgs) gatewayAPI;
       manifests = config.homelab.cluster.payload;
       # What k3s imports at start (k3s' own airgap images aside, which carry no name)
       preloaded = pkgs.writeText "preloaded-images" (
@@ -88,8 +88,6 @@
             ${toString ../../.github/pins.lock} = lib.listToAttrs (
               map (pin: lib.nameValuePair pin.key pin.unlocked) [
                 kubernetesSchemas
-                cilium
-                clusterNetworkPolicy
                 gatewayAPI
               ]
             );
@@ -107,7 +105,9 @@
           yq ea -N '(select(.kind == "List") | .items[]), select(.kind != "List")
             | select(.kind == "CustomResourceDefinition")' "$f" -s '"crds/" + .metadata.name + ".yaml"'
         done
-        cp ${cilium.src}/pkg/k8s/apis/cilium.io/client/crds/v2/*.yaml ${clusterNetworkPolicy.src} crds/
+        ${lib.concatImapStrings (
+          i: crd: "cp ${crd} crds/runtime-${toString i}.yaml\n"
+        ) config.homelab.cluster.runtimeCRDs}
         yq e -N 'select(.kind == "CustomResourceDefinition")' ${gatewayAPI.src} -s '"crds/" + .metadata.name + ".yaml"'
         (cd schemas && FILENAME_FORMAT='{fullgroup}-{kind}-{version}' \
           python3 ${pkgs.kubeconform.src}/scripts/openapi2jsonschema.py ../crds/*.yaml >/dev/null)

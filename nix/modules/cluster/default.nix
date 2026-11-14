@@ -9,7 +9,6 @@ let
   ccfg = config.homelab.cluster;
   flakePkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
   ipv4 = self.lib.ipv4;
-  crds = self.lib.crds.pinned pkgs;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   node = config.networking.hostName;
   drainedAnnotation = "cluster.local/drained-for-shutdown";
@@ -137,6 +136,11 @@ in
       '';
       defaultText = lib.literalMD "the manifests of `systemd.tmpfiles.settings.\"10-k3s\"`";
     };
+    runtimeCRDs = lib.mkOption {
+      description = "CustomResourceDefinition files of resources whose CRDs no manifest carries, as an operator creates them at runtime (a CNI's), for the manifests check to validate those resources against";
+      type = lib.types.listOf lib.types.path;
+      default = [ ];
+    };
     sourceLocks = lib.mkOption {
       description = "The fetches each lock file of `lib.pins.locked` pins, by its path and their key, without their hash, for `lock-images` to lock them when a pin changes";
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.package);
@@ -159,13 +163,7 @@ in
   ];
   config = lib.mkIf ccfg.enable {
     systemd.services."setup-secrets".after = [ "k3s.service" ];
-    homelab.kubernetes.kubernetes = {
-      version = lib.versions.majorMinor config.services.k3s.package.version;
-      # For the Cilium and ClusterNetworkPolicy objects that networking and shared write
-      customTypes = lib.concatMap self.lib.crd2types.customTypes (
-        crds.cilium.crds ++ crds.clusterNetworkPolicy.crds
-      );
-    };
+    homelab.kubernetes.kubernetes.version = lib.versions.majorMinor config.services.k3s.package.version;
     services.k3s.manifests = lib.mapAttrs (_: content: { inherit content; }) config.homelab.workloads.manifests;
     services.k3s.enable = true;
 
