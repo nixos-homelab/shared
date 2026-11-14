@@ -7,9 +7,7 @@ The `workloads` module holds the settings every workload shares, in
 configuration of the cluster: typed Kubernetes resources, so a misspelled
 field fails at evaluation and names where it was set. Each submodule
 instance goes to k3s as a manifest of its own, named after the instance;
-the other objects go to the manifest `kubenix`. The submodules below
-replace the workload macros. It runs next to the
-[workload macros](https://nixos-homelab.github.io/shared/workload-macros/) while workloads move over.
+the other objects go to the manifest `kubenix`.
 
 ## Custom resources
 

@@ -63,35 +63,6 @@
         ]
       },
       "locked": {
-        "lastModified": 1793220623,
-        "narHash": "sha256-vlv5FuG8moTqr//LNWAHvcMu49tY+/pgmJXSiglJqVE=",
-        "owner": "andsens",
-        "repo": "nix-docs",
-        "rev": "b76d12891c9b10a8f324a7b081c7b29bfd10a5f5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "andsens",
-        "repo": "nix-docs",
-        "type": "github"
-      }
-    },
-    "docs_3": {
-      "inputs": {
-        "flake-parts": [
-          "kubetree",
-          "flake-parts"
-        ],
-        "nixpkgs": [
-          "kubetree",
-          "nixpkgs"
-        ],
-        "systems": [
-          "kubetree",
-          "systems"
-        ]
-      },
-      "locked": {
         "lastModified": 1793753224,
         "narHash": "sha256-WbCAiOSyvoXrBuyBKIrRs2kZIMNXGLcTdFaJuDrvCZs=",
         "owner": "andsens",
@@ -105,7 +76,7 @@
         "type": "github"
       }
     },
-    "docs_4": {
+    "docs_3": {
       "inputs": {
         "flake-parts": [
           "setup-secrets",
@@ -170,7 +141,7 @@
     },
     "flake-utils": {
       "inputs": {
-        "systems": "systems_2"
+        "systems": "systems"
       },
       "locked": {
         "lastModified": 1731533236,
@@ -230,9 +201,6 @@
           "flake-parts"
         ],
         "kube-generators": "kube-generators",
-        "kubetree": [
-          "kubetree"
-        ],
         "nixpkgs": [
           "nixpkgs"
         ],
@@ -241,11 +209,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794346878,
-        "narHash": "sha256-E+0DY0ypPj0NzxBal2Ubkrgrk3KsSVKOWpbGUn9mPlY=",
+        "lastModified": 1794615244,
+        "narHash": "sha256-GoG+x8vL6uO4Udav13ovKDiqSID7NsddrT/ojfsVves=",
         "owner": "andsens",
         "repo": "k8sss",
-        "rev": "2cd1eb664c3ad34f583c7901938d249512608134",
+        "rev": "8dc1b4b21727c4a52ab3ccf46b4e4de84517880e",
         "type": "github"
       },
       "original": {
@@ -311,31 +279,6 @@
       "original": {
         "owner": "hall",
         "repo": "kubenix",
-        "type": "github"
-      }
-    },
-    "kubetree": {
-      "inputs": {
-        "docs": "docs_3",
-        "flake-parts": [
-          "flake-parts"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "systems": "systems"
-      },
-      "locked": {
-        "lastModified": 1794138863,
-        "narHash": "sha256-1mgcCcxEDqE283rM8a8V7Xso5qHGrq3+6jd5/L4RnfU=",
-        "owner": "andsens",
-        "repo": "nix-kubetree",
-        "rev": "7e9e2c3b4bddc9ea23b252bfc2b2c1f6307b92d4",
-        "type": "github"
-      },
-      "original": {
-        "owner": "andsens",
-        "repo": "nix-kubetree",
         "type": "github"
       }
     },
@@ -468,16 +411,15 @@
         "k8sss": "k8sss",
         "kube-generators": "kube-generators_2",
         "kubenix": "kubenix",
-        "kubetree": "kubetree",
         "nixhelm": "nixhelm",
         "nixpkgs": "nixpkgs",
         "setup-secrets": "setup-secrets",
-        "systems": "systems_3"
+        "systems": "systems_2"
       }
     },
     "setup-secrets": {
       "inputs": {
-        "docs": "docs_4",
+        "docs": "docs_3",
         "flake-parts": [
           "flake-parts"
         ],
@@ -504,21 +446,6 @@
     },
     "systems": {
       "locked": {
-        "lastModified": 1791244623,
-        "narHash": "sha256-uuanbkFk8a313Zfrxdcz8Us/yQtaxNnKJtX8v0ZPpd8=",
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "d36eeed142f88b5a636f2e3856a53c61654cf29b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-systems",
-        "repo": "default",
-        "type": "github"
-      }
-    },
-    "systems_2": {
-      "locked": {
         "lastModified": 1681028828,
         "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
         "owner": "nix-systems",
@@ -532,7 +459,7 @@
         "type": "github"
       }
     },
-    "systems_3": {
+    "systems_2": {
       "locked": {
         "lastModified": 1689347949,
         "narHash": "sha256-12tWmuL2zgBgZkdoB6qXZsgJEH9LR3oUgpaQq2RbI80=",

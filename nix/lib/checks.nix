@@ -3,197 +3,6 @@
   inputs,
   lib,
 }:
-let
-  transform = inputs.kubetree.lib.transform;
-  # Without a CNI module (networking's cilium) to expand them, NetpolMacro and toPortsFlattened stay as they are, which
-  # isn't valid Kubernetes. This expands them CNI-neutrally, into a NetworkPolicy and a ClusterNetworkPolicy, so the
-  # manifests can be checked. It's for the check only: nothing deploys it
-  networkPolicies =
-    { config, ... }:
-    let
-      toPorts = map (p: if builtins.isInt p then { port = p; } else p);
-      transformNetpolMacro =
-        cfg: resource:
-        let
-          inherit (transform.mkResourceHelper resource) dotPath;
-          name = dotPath "metadata.name" (throw "You must specify metadata.name");
-          namespace = dotPath "metadata.namespace" name;
-          ports = toPorts (dotPath "spec.ports" [ ]);
-          egressLabel = "cluster.local/${name}-egress";
-        in
-        {
-          apiVersion = "v1";
-          kind = "List";
-          items = [
-            {
-              apiVersion = "networking.k8s.io/v1";
-              kind = "NetworkPolicy";
-              metadata = {
-                name = "${name}-from-pod";
-                inherit namespace;
-              };
-              spec = {
-                podSelector.matchLabels."app.kubernetes.io/name" = name;
-                policyTypes = [ "Ingress" ];
-                ingress = [
-                  {
-                    from = [
-                      {
-                        namespaceSelector = { };
-                        podSelector.matchLabels.${egressLabel} = "allow";
-                      }
-                    ];
-                    ports = map (p: {
-                      inherit (p) port;
-                      protocol = p.protocol or "TCP";
-                    }) ports;
-                  }
-                ];
-              };
-            }
-            {
-              apiVersion = "policy.networking.k8s.io/v1alpha2";
-              kind = "ClusterNetworkPolicy";
-              metadata.name = "pod-to-${name}";
-              spec = {
-                # Allows what namespaced policies don't deny, like Cilium's clusterwide policies
-                tier = "Baseline";
-                priority = 500;
-                subject.pods = {
-                  namespaceSelector = { };
-                  podSelector.matchLabels.${egressLabel} = "allow";
-                };
-                egress = [
-                  (
-                    {
-                      name = "to-${name}";
-                      action = "Accept";
-                      to = [
-                        {
-                          pods = {
-                            namespaceSelector.matchLabels."kubernetes.io/metadata.name" = namespace;
-                            podSelector.matchLabels."app.kubernetes.io/name" = name;
-                          };
-                        }
-                      ];
-                    }
-                    // lib.optionalAttrs (ports != [ ]) {
-                      protocols = map (p: {
-                        ${lib.toLower (p.protocol or "TCP")}.destinationPort.number = p.port;
-                      }) ports;
-                    }
-                  )
-                ];
-              };
-            }
-          ];
-        };
-      # Cilium's nested toPorts, from a flat list of ports, as networking's cilium module does it
-      transformToPortsFlattened =
-        cfg: resource:
-        let
-          ports = map (p: {
-            port = toString p.port;
-            protocol = p.protocol or "TCP";
-          }) (toPorts (resource.toPortsFlattened or [ ]));
-        in
-        removeAttrs resource [ "toPortsFlattened" ]
-        // lib.optionalAttrs (ports != [ ]) {
-          toPorts = (resource.toPorts or [ ]) ++ [ { inherit ports; } ];
-        };
-      rules = {
-        ingress."[]"._transformers = [ transformToPortsFlattened ];
-        egress."[]"._transformers = [ transformToPortsFlattened ];
-      };
-      # The same for the policies of kubenix pods, which networking's cilium module adds when Cilium runs
-      podPolicies =
-        {
-          lib,
-          name,
-          args,
-          config,
-          ...
-        }:
-        let
-          inherit (config.kubernetes) namespace;
-          ports = map (
-            n:
-            let
-              p = args.ports.${n};
-            in
-            {
-              port = p.containerPort;
-              protocol = if p.protocol == null then "TCP" else p.protocol;
-            }
-          ) args.policyPorts;
-          egressLabel = "cluster.local/${name}-egress";
-        in
-        {
-          kubernetes.resources = lib.mkIf (ports != [ ]) {
-            networkPolicies."${name}-from-pod".spec = {
-              podSelector.matchLabels."app.kubernetes.io/name" = name;
-              policyTypes = [ "Ingress" ];
-              ingress = [
-                {
-                  from = [
-                    {
-                      namespaceSelector = { };
-                      podSelector.matchLabels.${egressLabel} = "allow";
-                    }
-                  ];
-                  inherit ports;
-                }
-              ];
-            };
-            clusterNetworkPolicies."pod-to-${name}" = {
-              metadata.namespace = null;
-              spec = {
-                tier = "Baseline";
-                priority = 500;
-                subject.pods = {
-                  namespaceSelector = { };
-                  podSelector.matchLabels.${egressLabel} = "allow";
-                };
-                egress = [
-                  {
-                    name = "to-${name}";
-                    action = "Accept";
-                    to = [
-                      {
-                        pods = {
-                          namespaceSelector.matchLabels."kubernetes.io/metadata.name" = namespace;
-                          podSelector.matchLabels."app.kubernetes.io/name" = name;
-                        };
-                      }
-                    ];
-                    protocols = map (p: { ${lib.toLower p.protocol}.destinationPort.number = p.port; }) ports;
-                  }
-                ];
-              };
-            };
-          };
-        };
-    in
-    {
-      config.homelab.kubernetes.submodules.defaults = lib.mkIf (!(config.homelab.cilium.enable or false)) [
-        {
-          features = [ "pod-spec" ];
-          default = podPolicies;
-        }
-      ];
-      config.kubetree.transformers = lib.mkIf (!(config.kubetree.cilium.enable or false)) {
-        "cluster.local".NetpolMacro._transformers = [
-          transformNetpolMacro
-          transform.transformResource
-          transform.flattenResourceList
-        ];
-        "cilium.io" = {
-          CiliumClusterwideNetworkPolicy.spec = rules;
-          CiliumNetworkPolicy.spec = rules;
-        };
-      };
-    };
-in
 {
   # Checks what a set of NixOS modules sends to k3s, on top of a cluster with this flake's modules, without running
   # one: every manifest against the Kubernetes schemas and those of the CRDs it uses, every container against pulling.
@@ -207,7 +16,6 @@ in
           modules =
             lib.attrValues self.nixosModules
             ++ [
-              networkPolicies
               {
                 nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system;
                 networking.hostName = "manifests";
@@ -262,7 +70,7 @@ in
         }
       );
       inherit (self.lib.crds.pinned pkgs) cilium clusterNetworkPolicy gatewayAPI;
-      manifests = config.kubetree.k3s.payload.manifests;
+      manifests = config.homelab.cluster.payload;
       # What k3s imports at start (k3s' own airgap images aside, which carry no name)
       preloaded = pkgs.writeText "preloaded-images" (
         lib.concatMapStrings (i: "${i.imageName}:${i.imageTag}\n") (

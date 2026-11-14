@@ -4,11 +4,6 @@
     systems.url = "github:nix-systems/default-linux";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    kubetree = {
-      url = "github:andsens/nix-kubetree";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-parts.follows = "flake-parts";
-    };
     kubenix = {
       url = "github:hall/kubenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -25,7 +20,6 @@
       url = "github:andsens/k8sss";
       inputs.systems.follows = "systems";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.kubetree.follows = "kubetree";
       inputs.flake-parts.follows = "flake-parts";
     };
     nixhelm = {
@@ -72,16 +66,12 @@
             k8s = import ./nix/lib/k8s.nix { inherit lib; };
             pins = import ./nix/lib/pins.nix { inherit lib; };
             setup-secrets = import ./nix/lib/setup-secrets.nix { inherit lib; };
-            workload-macros = import ./nix/lib/workload-macros.nix { inherit lib; };
           };
           nixosModules = {
             cert-manager = importApply ./nix/modules/cert-manager { inherit self inputs; };
             cluster = importApply ./nix/modules/cluster { inherit self inputs; };
             homepage = importApply ./nix/modules/homepage { inherit self inputs; };
             k8sss = importApply ./nix/modules/k8sss { inherit self inputs; };
-            workload-macros = importApply ./nix/modules/workload-macros {
-              inherit self inputs;
-            };
             workloads = importApply ./nix/modules/workloads { inherit self inputs; };
             nfs-provisioner = importApply ./nix/modules/nfs-provisioner { inherit self inputs; };
             postgresql = importApply ./nix/modules/postgresql { inherit self inputs; };
@@ -134,7 +124,6 @@
                   cert-manager = [ "homelab.cert-manager" ];
                   cluster = [ "homelab.cluster" ];
                   k8sss = [ "homelab.k8sss" ];
-                  workload-macros = [ "kubetree.workload-macros" ];
                   workloads = [
                     "homelab.workloads"
                     "homelab.kubernetes"
@@ -150,7 +139,6 @@
                 inherit pkgs;
                 rootDoc = ./README.md;
                 pathMap = {
-                  workload-macros = ./nix/modules/workload-macros/README.md;
                   kubenix = ./nix/modules/workloads/README.md;
                 };
               };

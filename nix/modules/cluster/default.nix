@@ -123,6 +123,20 @@ in
       type = lib.types.attrsOf (lib.types.listOf lib.types.str);
       default = { };
     };
+    payload = lib.mkOption {
+      description = "A directory of the manifests k3s gets, as it finds them in its manifests directory; build `nixosConfigurations.<host>.config.homelab.cluster.payload` to look at them";
+      type = lib.types.package;
+      readOnly = true;
+      default = pkgs.runCommand "k3s-payload" { } ''
+        mkdir "$out"
+        ${lib.concatStrings (
+          lib.mapAttrsToList (path: rule: ''
+            ln -s "${rule."L+".argument}" "$out/${baseNameOf path}"
+          '') (lib.filterAttrs (path: _: baseNameOf (dirOf path) == "manifests") config.systemd.tmpfiles.settings."10-k3s")
+        )}
+      '';
+      defaultText = lib.literalMD "the manifests of `systemd.tmpfiles.settings.\"10-k3s\"`";
+    };
     sourceLocks = lib.mkOption {
       description = "The fetches each lock file of `lib.pins.locked` pins, by its path and their key, without their hash, for `lock-images` to lock them when a pin changes";
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.package);
@@ -140,9 +154,7 @@ in
     };
   };
   imports = [
-    inputs.kubetree.nixosModules.default
     self.nixosModules.workloads
-    self.nixosModules.workload-macros
     inputs.setup-secrets.nixosModules.default
   ];
   config = lib.mkIf ccfg.enable {
@@ -156,11 +168,6 @@ in
     };
     services.k3s.manifests = lib.mapAttrs (_: content: { inherit content; }) config.homelab.workloads.manifests;
     services.k3s.enable = true;
-    kubetree = {
-      kubernetes.enable = true;
-      workload-macros.enable = true;
-      k3s.enable = true;
-    };
 
     environment.systemPackages = [
       (pkgs.writeShellScriptBin "k9s" ''KUBECONFIG=/etc/rancher/k3s/k3s.yaml exec ${lib.getExe pkgs.k9s} "$@"'')

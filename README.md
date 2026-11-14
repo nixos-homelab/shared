@@ -1,14 +1,12 @@
 # nixos-homelab-shared
 
 Every other `nixos-homelab-*` repo takes this one as an input and
-requires its `cluster` module -- which bootstraps k3s and
-[kubetree](https://github.com/andsens/nix-kubetree) -- enabled. It also
+requires its `cluster` module -- which bootstraps k3s -- enabled. It also
 provides shared services used across those repos: a database, a
 dashboard, TLS, and storage.
 
-See the [workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/) for the custom
-resource kinds `kubetree.resources` accepts, [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/)
-for the typed resources and submodules of `homelab.kubernetes` that replace them, and
+See [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/)
+for the typed resources and submodules of `homelab.kubernetes`, and
 [the options reference](https://nixos-homelab.github.io/shared/options/) for the full list of module options.
 
 ## Setup
@@ -39,7 +37,7 @@ for the typed resources and submodules of `homelab.kubernetes` that replace them
 
 ## Modules
 
-- **cluster**: bootstraps k3s and `kubetree`, and provides the shared
+- **cluster**: bootstraps k3s, and provides the shared
   `homelab.cluster.*` options (pod/service CIDRs, debug tools, backup
   aggregation) every other module in this ecosystem builds on.
 - **workloads**: the settings every workload shares (`homelab.workloads`:
@@ -47,8 +45,6 @@ for the typed resources and submodules of `homelab.kubernetes` that replace them
   configuration in `homelab.kubernetes`, with the `workload` submodule --
   see [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/).
   `cluster` imports it and sends what it holds to k3s.
-- **workload-macros**: the `WorkloadMacro`/`DeploymentMacro`/etc. resource
-  kinds -- see [the workload macros docs](https://nixos-homelab.github.io/shared/workload-macros/).
 - **homepage**: the [homepage](https://gethomepage.dev) dashboard, with a
   per-service `integrations` allow-list.
 - **cert-manager**: cert-manager plus a LibDNS ACME webhook, for
