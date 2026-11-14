@@ -103,6 +103,23 @@ in
         "${cfg.dataDir}/server/db"
       ];
     };
+    # The policy intent of the metrics-server k3s bundles, unless a module deploys one: the API server calls it as the
+    # metrics API, pods labeled `cluster.local/metrics-server-egress: allow` may reach it. Its own egress, to the
+    # kubelets and the API server, is up to the module of the CNI, as the policy intent has no egress
+    homelab.kubernetes.submodules.instances.metrics-server-policy = lib.mkIf (!provided "metrics-server") {
+      submodule = "manifest";
+      config = {
+        kubernetes.namespace = "kube-system";
+        submodules.instances.metrics-server = {
+          submodule = "pods";
+          args = {
+            selector.k8s-app = "metrics-server";
+            ports.https = 10250;
+            apiServerPorts = [ "https" ];
+          };
+        };
+      };
+    };
     systemd.services."setup-secrets".after = [ "k3s.service" ];
     services.k3s.manifests = lib.mapAttrs (
       _: manifest:
