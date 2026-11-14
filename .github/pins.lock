@@ -1,4 +1,4 @@
 {
   "gateway-api-experimental-install@v1.7.0": "sha256-5tLTQHcX9UtXmyKtTRZLaGOJWzUk8hJQsNoMH/mgXVM=",
-  "kubernetes-json-schema-v1.35.8-standalone-strict@9367d1ce1c88b8bbf6ee06d0e80510f26394913f": "sha256-azkW81seWoWwXvyrDw6IvW8GVLEg1Az+TfUykKiXFnU="
+  "kubernetes-json-schema-v1.35.8-standalone-strict@2bfaff3898a7a4fa4e4760da3d2656211c9b4c71": "sha256-azkW81seWoWwXvyrDw6IvW8GVLEg1Az+TfUykKiXFnU="
 }
