@@ -182,10 +182,10 @@ in
                 "apiserver"
                 "internet"
               ];
-              allowIngress = [ "apiserver" ];
               ports.https = 8443;
-              # Only the API server calls it (`allowIngress`)
+              # Only the API server calls it
               policyPorts = [ ];
+              apiServerPorts = [ "https" ];
               container = {
                 image = "${webhookImage.buildArgs.name}:${webhookImage.imageTag}";
                 imagePullPolicy = "Never";
