@@ -3,22 +3,15 @@
 {
   config,
   lib,
-  kubenix,
   name,
   ...
 }:
 {
-  imports = [
-    kubenix.modules.submodule
-    kubenix.modules.k8s
-    ./namespace.nix
-    ./pod-spec.nix
-  ];
+  imports = [ ./controller.nix ];
   config = {
     submodule.name = "job";
-    submodule.passthru.kubernetes.objects = config.kubernetes.objects;
     kubernetes.resources.jobs.${name} = {
-      metadata.labels."app.kubernetes.io/name" = name;
+      metadata = { inherit (config) labels; };
       spec.template = lib.mkMerge [
         config.podTemplate
         { spec.restartPolicy = lib.mkDefault "Never"; }

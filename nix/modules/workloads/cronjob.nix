@@ -3,18 +3,12 @@
 {
   config,
   lib,
-  kubenix,
   name,
   args,
   ...
 }:
 {
-  imports = [
-    kubenix.modules.submodule
-    kubenix.modules.k8s
-    ./namespace.nix
-    ./pod-spec.nix
-  ];
+  imports = [ ./controller.nix ];
   options.submodule.args.schedule = lib.mkOption {
     description = "When the job runs, in cron notation.";
     type = lib.types.str;
@@ -22,9 +16,8 @@
   };
   config = {
     submodule.name = "cronjob";
-    submodule.passthru.kubernetes.objects = config.kubernetes.objects;
     kubernetes.resources.cronJobs.${name} = {
-      metadata.labels."app.kubernetes.io/name" = name;
+      metadata = { inherit (config) labels; };
       spec = {
         inherit (args) schedule;
         jobTemplate.spec.template = lib.mkMerge [

@@ -1,27 +1,13 @@
 # A DaemonSet named after the instance, running the pod of `pod-spec.nix` on every node.
+{ config, name, ... }:
 {
-  config,
-  kubenix,
-  name,
-  ...
-}:
-let
-  labels."app.kubernetes.io/name" = name;
-in
-{
-  imports = [
-    kubenix.modules.submodule
-    kubenix.modules.k8s
-    ./namespace.nix
-    ./pod-spec.nix
-  ];
+  imports = [ ./controller.nix ];
   config = {
     submodule.name = "daemonset";
-    submodule.passthru.kubernetes.objects = config.kubernetes.objects;
     kubernetes.resources.daemonSets.${name} = {
-      metadata = { inherit labels; };
+      metadata = { inherit (config) labels; };
       spec = {
-        selector.matchLabels = labels;
+        selector.matchLabels = config.labels;
         template = config.podTemplate;
       };
     };
