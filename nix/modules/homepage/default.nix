@@ -191,8 +191,8 @@ in
   imports = [ self.nixosModules.cluster ];
   config = lib.mkIf cfg.enable {
     homelab.homepage.assets.${backgroundAsset} = cfg.backgroundImage;
-    services.k3s.images = [ image ];
-    services.k3s.manifests.homepage-static.source = ./homepage.yaml;
+    homelab.cluster.images = [ image ];
+    homelab.cluster.manifests.homepage-static.source = ./homepage.yaml;
     homelab.kubernetes.submodules.instances.homepage = {
       submodule = "workload";
       args = {

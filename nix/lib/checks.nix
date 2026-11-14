@@ -4,7 +4,7 @@
   lib,
 }:
 {
-  # Checks what a set of NixOS modules sends to k3s, on top of a cluster with this flake's modules, without running
+  # Checks what a set of NixOS modules sends to the cluster, on top of a cluster with this flake's modules, without running
   # one: every manifest against the Kubernetes schemas and those of the CRDs it uses, every container against pulling.
   # config, a whole machine's NixOS configuration, takes the place of that cluster and the modules
   manifests =
@@ -33,7 +33,7 @@
                   acmeProvider = "letsencrypt-staging";
                   gatewayClassName = "example";
                 };
-                homelab.cluster = {
+                homelab.k3s = {
                   enable = true;
                   dataDir = "/var/lib/rancher/k3s";
                 };
@@ -57,8 +57,9 @@
     let
       pins = self.lib.pins.refs ../../.github/workflows/pins.yaml;
       pinned = self.lib.pins.locked ../../.github/pins.lock;
-      # The JSON schemas of the Kubernetes version k3s runs, from the repository kubeconform reads them from by default
-      schemas = "v${lib.head (lib.splitString "+" config.services.k3s.package.version)}-standalone-strict";
+      # The JSON schemas of the Kubernetes version the cluster runs, from the repository kubeconform reads them from by
+      # default
+      schemas = "v${config.homelab.cluster.kubernetesVersion}-standalone-strict";
       kubernetesSchemas = pinned "kubernetes-json-schema-${schemas}" pins."yannh/kubernetes-json-schema" (
         hash:
         pkgs.fetchFromGitHub {
@@ -71,10 +72,10 @@
       );
       inherit (self.lib.crds.pinned pkgs) gatewayAPI;
       manifests = config.homelab.cluster.payload;
-      # What k3s imports at start (k3s' own airgap images aside, which carry no name)
+      # What the node imports at start
       preloaded = pkgs.writeText "preloaded-images" (
         lib.concatMapStrings (i: "${i.imageName}:${i.imageTag}\n") (
-          lib.filter (i: i ? imageName) config.services.k3s.images
+          lib.filter (i: i ? imageName) config.homelab.cluster.images
         )
       );
     in

@@ -100,8 +100,8 @@ in
       submodule = "manifest";
       config.kubernetes.resources.namespaces.nfs-provisioner.metadata.namespace = null;
     };
-    services.k3s.images = [ image ];
-    services.k3s.manifests = {
+    homelab.cluster.images = [ image ];
+    homelab.cluster.manifests = {
       nfs-provisioner-helm.source =
         self.lib.k8s.patchManifest { inherit pkgs; }
           (kubelib.buildHelmChart {

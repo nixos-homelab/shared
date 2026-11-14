@@ -19,7 +19,7 @@ in
   config = lib.mkIf config.homelab.k8sss.enable {
     k8sss.enable = true;
     k8sss.images = lib.mapAttrs (_: image: lib.mkDefault (images.refFor image.default)) options.k8sss.images;
-    services.k3s.images = images.images;
+    homelab.cluster.images = images.images;
     homelab.cluster.imageLocks.${toString ./images.lock} = refs;
     k8sss.dnsNames = [ "${config.networking.hostName}.${config.homelab.workloads.domain}" ];
     # Next to the objects k8sss puts in the manifest k8sss: who may reach step-ca, the pods labeled

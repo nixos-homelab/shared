@@ -42,7 +42,7 @@
     lib.getExe (
       pkgs.writeShellScriptBin "setup-secret-cmd.sh" ''
         set -eo pipefail
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        export KUBECONFIG=/etc/kubernetes/kubeconfig
         PATH=${
           lib.makeBinPath [
             pkgs.coreutils

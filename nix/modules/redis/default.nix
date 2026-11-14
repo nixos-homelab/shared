@@ -51,7 +51,7 @@ in
         }
       )
     ];
-    services.k3s.images = [ image ];
+    homelab.cluster.images = [ image ];
     homelab.cluster.backup.volumes.redis.redis = [ "/dump.rdb" ];
     homelab.kubernetes.submodules.instances.redis = {
       submodule = "workload";

@@ -133,7 +133,7 @@ in
   };
   imports = [ inputs.setup-secrets.nixosModules.default ];
   config = lib.mkIf cfg.enable {
-    services.k3s.images = [ image ];
+    homelab.cluster.images = [ image ];
     # A password is generated only when its Secret is missing, never when the API call fails
     setup-secrets.sources = lib.listToAttrs (
       map (

@@ -71,6 +71,7 @@
             cert-manager = importApply ./nix/modules/cert-manager { inherit self inputs; };
             cluster = importApply ./nix/modules/cluster { inherit self inputs; };
             homepage = importApply ./nix/modules/homepage { inherit self inputs; };
+            k3s = importApply ./nix/modules/k3s { inherit self inputs; };
             k8sss = importApply ./nix/modules/k8sss { inherit self inputs; };
             workloads = importApply ./nix/modules/workloads { inherit self inputs; };
             nfs-provisioner = importApply ./nix/modules/nfs-provisioner { inherit self inputs; };
@@ -123,6 +124,7 @@
                 prefixGroups = {
                   cert-manager = [ "homelab.cert-manager" ];
                   cluster = [ "homelab.cluster" ];
+                  k3s = [ "homelab.k3s" ];
                   k8sss = [ "homelab.k8sss" ];
                   workloads = [
                     "homelab.workloads"

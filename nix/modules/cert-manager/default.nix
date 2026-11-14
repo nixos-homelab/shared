@@ -89,13 +89,13 @@ in
   };
   config = {
     homelab.cluster.imageLocks.${toString ./images.lock} = certManager.refs;
-    services.k3s.images = [ webhookImage ] ++ certManager.images;
+    homelab.cluster.images = [ webhookImage ] ++ certManager.images;
     homelab.kubernetes.kubernetes.customTypes = lib.concatMap self.lib.crd2types.customTypes (
       lib.filter (d: d.kind or null == "CustomResourceDefinition") (
         kubelib.fromYAML (builtins.readFile rendered)
       )
     );
-    services.k3s.manifests = {
+    homelab.cluster.manifests = {
       cert-manager-helm.source = certManager.manifest;
       cert-manager-webhook-libdns-static.source = ./cert-manager-webhook-libdns.yaml;
     };
