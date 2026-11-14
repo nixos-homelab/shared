@@ -174,6 +174,8 @@ in
         "k3s.service"
         "k3s-prune-links.service"
       ];
+      # Without k3s there is no API server to wait for: fail at once rather than hold up a boot or a deploy
+      requisite = [ "k3s.service" ];
       wantedBy = [ "multi-user.target" ];
       restartTriggers = [ pruneLinks ];
       serviceConfig = {
