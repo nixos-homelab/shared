@@ -11,10 +11,37 @@ let
   kubeconfig = "/etc/rancher/k3s/k3s.yaml";
   # Where k3s imports images from, through the link to the data directory
   imageDir = "/var/lib/rancher/k3s/agent/images";
-  images = ccfg.images ++ [
-    # pause, coredns, metrics-server and the other images k3s runs itself, so nothing is pulled at runtime
-    config.services.k3s.package.airgap-images
-  ];
+  # A docker archive as an OCI archive with zstd-compressed layers, under the reference containerd gives the docker
+  # archive's tag (`redis:8` is `docker.io/library/redis:8`). containerd keeps the layers compressed, which the docker
+  # archives of `dockerTools` and `pullImage` don't have
+  zstdArchive =
+    image:
+    pkgs.runCommand "${lib.removeSuffix ".tar" (lib.removeSuffix ".gz" image.name)}-zstd.tar"
+      {
+        nativeBuildInputs = [
+          pkgs.jq
+          pkgs.skopeo
+        ];
+      }
+      ''
+        manifest=$(tar -xOf ${image} manifest.json)
+        jq -e 'length == 1 and (.[0].RepoTags | length) == 1' <<<"$manifest" >/dev/null
+        ref=$(jq -r '.[0].RepoTags[0]' <<<"$manifest")
+        domain=''${ref%%/*}
+        if [[ $ref != */* ]]; then
+          ref=docker.io/library/$ref
+        elif [[ $domain != *.* && $domain != *:* && $domain != localhost ]]; then
+          ref=docker.io/$ref
+        fi
+        skopeo --tmpdir "$TMPDIR" --insecure-policy copy -q --dest-compress-format zstd \
+          "docker-archive:${image}" "oci-archive:$out:$ref"
+      '';
+  images =
+    map (image: if cfg.zstdImages && !lib.hasSuffix ".zst" image.name then zstdArchive image else image) ccfg.images
+    ++ [
+      # pause, coredns, metrics-server and the other images k3s runs itself, so nothing is pulled at runtime
+      config.services.k3s.package.airgap-images
+    ];
   provided = component: lib.elem component ccfg.providedComponents;
   ipv4 = self.lib.ipv4;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
@@ -85,6 +112,11 @@ in
       description = "Location of the k3s data directory";
       type = lib.types.str;
     };
+    zstdImages = lib.mkEnableOption ''
+      recompressing the images into OCI archives with zstd-compressed layers: about half the size in the store, and
+      the first import (every image) about a third as long, as containerd keeps the layers compressed. It takes a few
+      seconds of build per image. Meant for systems that are copied whole (installer and disk images), as later
+      deploys import only the images that changed'';
   };
   imports = [
     self.nixosModules.cluster
