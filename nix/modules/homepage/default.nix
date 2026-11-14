@@ -8,6 +8,7 @@
 let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.homepage;
+  kubelib = inputs.kube-generators.lib { inherit pkgs; };
   # Attribute names can't carry the store path's string context
   backgroundAsset = "background.${builtins.unsafeDiscardStringContext (lib.last (lib.splitString "." "${cfg.backgroundImage}"))}";
   assets = pkgs.stdenvNoCC.mkDerivation {
@@ -192,7 +193,6 @@ in
   config = lib.mkIf cfg.enable {
     homelab.homepage.assets.${backgroundAsset} = cfg.backgroundImage;
     homelab.cluster.images = [ image ];
-    homelab.cluster.manifests.homepage-static.source = ./homepage.yaml;
     homelab.kubernetes.submodules.instances.homepage = {
       submodule = "workload";
       args = {
@@ -264,6 +264,8 @@ in
             };
         };
       };
+      # In the manifest with the namespace, as `homepage-static` came before it (see cert-manager)
+      config.kubernetes.objects = kubelib.fromYAML (builtins.readFile ./homepage.yaml);
       config.kubernetes.resources = {
         configMaps.homepage.data = {
           "kubernetes.yaml" = builtins.toJSON { mode = "cluster"; };

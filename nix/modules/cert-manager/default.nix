@@ -95,13 +95,16 @@ in
         kubelib.fromYAML (builtins.readFile rendered)
       )
     );
-    homelab.cluster.manifests = {
-      cert-manager-helm.source = certManager.manifest;
-      cert-manager-webhook-libdns-static.source = ./cert-manager-webhook-libdns.yaml;
-    };
     homelab.kubernetes.submodules.instances.cert-manager = {
       submodule = "manifest";
       config = {
+        # The chart and the webhook in the manifest with the namespace, which kubenix puts first with the CRDs: k3s
+        # applies manifests in the order of their names, the kinds of a manifest in their order in it, and after a
+        # failure everything again 15 s later. `cert-manager-helm` came before this one, which kept the controller and
+        # its webhook waiting for that second pass
+        kubernetes.objects =
+          kubelib.fromYAML (builtins.readFile certManager.manifest)
+          ++ kubelib.fromYAML (builtins.readFile ./cert-manager-webhook-libdns.yaml);
         kubernetes.resources =
           let
             acmeIssuer = server: privateKey: webhook-config: {
