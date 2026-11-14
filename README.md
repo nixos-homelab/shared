@@ -3,8 +3,9 @@
 Every other `nixos-homelab-*` repo takes this one as an input and builds
 on its `cluster` module, the facts of the cluster, with a runner that
 runs it: the `k3s` module, enabled. It also
-provides shared services used across those repos: a database, a
-dashboard, TLS, and storage.
+provides shared services used across those repos: a dashboard, TLS, and
+SSH-key access to the cluster. Databases and storage are in
+[nixos-homelab-storage](https://github.com/nixos-homelab/storage).
 
 See [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/)
 for the typed resources and submodules of `homelab.kubernetes`, and
@@ -28,10 +29,7 @@ for the typed resources and submodules of `homelab.kubernetes`, and
 ```nix
 { inputs, ... }:
 {
-  imports = [
-    inputs.homelab-shared.nixosModules.k3s
-    inputs.homelab-shared.nixosModules.postgresql
-  ];
+  imports = [ inputs.homelab-shared.nixosModules.k3s ];
   config.homelab.k3s.enable = true;
 }
 ```
@@ -55,13 +53,5 @@ for the typed resources and submodules of `homelab.kubernetes`, and
   per-service `integrations` allow-list.
 - **cert-manager**: cert-manager plus a LibDNS ACME webhook, for
   automated TLS certificates.
-- **postgresql**: a shared PostgreSQL instance with declarative database
-  creation and backups.
-- **redis**: a shared Redis instance with a database-index registry, to
-  keep workloads from colliding on the same DB number.
-- **nfs-provisioner**: a dynamic PersistentVolume provisioner backed by
-  an NFS export.
-- **smb**: Samba file sharing, with per-user passwords set up through
-  `setup-secrets`.
 - **k8sss**: deploys [k8sss](https://github.com/andsens/k8sss) for
   SSH-key-based `kubectl` access.

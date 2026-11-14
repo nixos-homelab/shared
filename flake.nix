@@ -74,10 +74,6 @@
             k3s = importApply ./nix/modules/k3s { inherit self inputs; };
             k8sss = importApply ./nix/modules/k8sss { inherit self inputs; };
             workloads = importApply ./nix/modules/workloads { inherit self inputs; };
-            nfs-provisioner = importApply ./nix/modules/nfs-provisioner { inherit self inputs; };
-            postgresql = importApply ./nix/modules/postgresql { inherit self inputs; };
-            redis = importApply ./nix/modules/redis { inherit self inputs; };
-            smb = importApply ./nix/modules/smb { inherit self inputs; };
           };
         };
         perSystem =
@@ -93,18 +89,6 @@
                       allowEgress = [ ];
                     };
                     k8sss.enable = true;
-                    nfs-provisioner = {
-                      enable = true;
-                      path = "/srv/nfs";
-                    };
-                    postgresql = {
-                      enable = true;
-                      databases = { };
-                    };
-                    redis = {
-                      enable = true;
-                      databases = { };
-                    };
                   };
                 }
               ];
@@ -130,10 +114,6 @@
                     "homelab.workloads"
                     "homelab.kubernetes"
                   ];
-                  nfs-provisioner = [ "homelab.nfs-provisioner" ];
-                  postgresql = [ "homelab.postgresql" ];
-                  redis = [ "homelab.redis" ];
-                  smb = [ "homelab.smb" ];
                   homepage = [ "homelab.homepage.sections" ];
                 };
               };
