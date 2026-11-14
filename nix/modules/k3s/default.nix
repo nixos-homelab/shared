@@ -9,6 +9,12 @@ let
   cfg = config.homelab.k3s;
   ccfg = config.homelab.cluster;
   kubeconfig = "/etc/rancher/k3s/k3s.yaml";
+  # Where k3s imports images from, through the link to the data directory
+  imageDir = "/var/lib/rancher/k3s/agent/images";
+  images = ccfg.images ++ [
+    # pause, coredns, metrics-server and the other images k3s runs itself, so nothing is pulled at runtime
+    config.services.k3s.package.airgap-images
+  ];
   provided = component: lib.elem component ccfg.providedComponents;
   ipv4 = self.lib.ipv4;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
@@ -144,7 +150,7 @@ in
     networking.firewall.allowedTCPPorts = [ 6443 ];
     systemd.services.k3s.unitConfig.RequiresMountsFor = [ cfg.dataDir ];
     systemd.services.k3s.restartTriggers = [
-      config.services.k3s.images
+      images
       k3sConfig
     ];
     # k3s exits without a default route or with only some of the cluster's IP families, and network-online.target can
@@ -195,12 +201,26 @@ in
         ExecStart = lib.getExe uncordon;
       };
     };
+    # The image links, in place of `services.k3s.images` of the nixpkgs module, which names each link after the image
+    # alone. k3s skips a file whose size and mtime match its entry in `.cache.json`, and all store paths share one
+    # mtime, so each link carries its store path in its name: a changed image gets a new link, which k3s imports, and
+    # every start after the first skips the rest. k3s keeps the cache only in a file that exists, and drops the entries
+    # of links that are gone. An entry for an image that containerd no longer has keeps it from being imported again:
+    # delete the file, and k3s imports every link at its next start
+    systemd.tmpfiles.settings."10-k3s" =
+      lib.listToAttrs (
+        map (
+          image:
+          lib.nameValuePair "${imageDir}/${builtins.unsafeDiscardStringContext (baseNameOf image)}" {
+            "L+".argument = "${image}";
+          }
+        ) images
+      )
+      // {
+        "${imageDir}/.cache.json".f.mode = "0644";
+      };
     services.k3s = {
       gracefulNodeShutdown.enable = true;
-      images = ccfg.images ++ [
-        # pause, coredns, metrics-server and the other images k3s runs itself, so nothing is pulled at runtime
-        config.services.k3s.package.airgap-images
-      ];
       configPath = k3sConfig;
       # What the modules deploy themselves, in the order that the modules once wrote them in, so the unit stays the same
       disable =
