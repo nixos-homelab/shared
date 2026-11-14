@@ -83,6 +83,7 @@ in
   imports = [
     self.nixosModules.cluster
     inputs.setup-secrets.nixosModules.default
+    ./prune.nix
   ];
   config = lib.mkIf cfg.enable {
     homelab.cluster = {

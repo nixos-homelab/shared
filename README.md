@@ -42,8 +42,9 @@ for the typed resources and submodules of `homelab.kubernetes`, and
   images to preload and the manifests to apply, and the facts the runner
   sets (kubeconfig, unit, Kubernetes version).
 - **k3s**: runs the cluster on [k3s](https://k3s.io) (`homelab.k3s`): it
-  imports `cluster`, preloads its images, applies its manifests, and
-  drains the node at shutdown.
+  imports `cluster`, preloads its images, applies its manifests, removes
+  the manifests a deploy dropped along with their objects, and drains the
+  node at shutdown.
 - **workloads**: the settings every workload shares (`homelab.workloads`:
   domain, gateway class, ACME issuer, pod user and group) and kubenix
   configuration in `homelab.kubernetes`, with the `workload` submodule --
