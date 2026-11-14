@@ -13,7 +13,8 @@ let
   imageDir = "/var/lib/rancher/k3s/agent/images";
   # A docker archive as an OCI archive with zstd-compressed layers, under the reference containerd gives the docker
   # archive's tag (`redis:8` is `docker.io/library/redis:8`). containerd keeps the layers compressed, which the docker
-  # archives of `dockerTools` and `pullImage` don't have
+  # archives of `dockerTools` and `pullImage` don't have. The archive is self-contained, but its uncompressed JSON
+  # names store paths (the store hash in a tag, those in the image config) that Nix would take for references
   zstdArchive =
     image:
     pkgs.runCommand "${lib.removeSuffix ".tar" (lib.removeSuffix ".gz" image.name)}-zstd.tar"
@@ -22,6 +23,8 @@ let
           pkgs.jq
           pkgs.skopeo
         ];
+        __structuredAttrs = true;
+        unsafeDiscardReferences.out = true;
       }
       ''
         manifest=$(tar -xOf ${image} manifest.json)
