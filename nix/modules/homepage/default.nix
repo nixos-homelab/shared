@@ -206,7 +206,7 @@ in
           # Make all referenced env vars optional. Homepage can handle some values not being present
           env =
             (lib.mapAttrs (
-              name: spec:
+              _name: spec:
               if lib.isAttrs spec && spec ? valueFrom then
                 (
                   if spec.valueFrom ? configMapKeyRef then
