@@ -1,7 +1,8 @@
 # nixos-homelab-shared
 
-Every other `nixos-homelab-*` repo takes this one as an input and
-requires its `cluster` module -- which bootstraps k3s -- enabled. It also
+Every other `nixos-homelab-*` repo takes this one as an input and builds
+on its `cluster` module, the facts of the cluster, with a runner that
+runs it: the `k3s` module, enabled. It also
 provides shared services used across those repos: a database, a
 dashboard, TLS, and storage.
 
@@ -28,23 +29,28 @@ for the typed resources and submodules of `homelab.kubernetes`, and
 { inputs, ... }:
 {
   imports = [
-    inputs.homelab-shared.nixosModules.cluster
+    inputs.homelab-shared.nixosModules.k3s
     inputs.homelab-shared.nixosModules.postgresql
   ];
-  config.homelab.cluster.enable = true;
+  config.homelab.k3s.enable = true;
 }
 ```
 
 ## Modules
 
-- **cluster**: bootstraps k3s, and provides the shared
-  `homelab.cluster.*` options (pod/service CIDRs, debug tools, backup
-  aggregation) every other module in this ecosystem builds on.
+- **cluster**: the shared `homelab.cluster.*` options every other module
+  in this ecosystem builds on, whichever runner runs the cluster: IP
+  families, pod/service CIDRs, debug tools, backup aggregation, the
+  images to preload and the manifests to apply, and the facts the runner
+  sets (kubeconfig, unit, Kubernetes version).
+- **k3s**: runs the cluster on [k3s](https://k3s.io) (`homelab.k3s`): it
+  imports `cluster`, preloads its images, applies its manifests, and
+  drains the node at shutdown.
 - **workloads**: the settings every workload shares (`homelab.workloads`:
   domain, gateway class, ACME issuer, pod user and group) and kubenix
   configuration in `homelab.kubernetes`, with the `workload` submodule --
   see [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/).
-  `cluster` imports it and sends what it holds to k3s.
+  `cluster` imports it and hands what it holds to the runner.
 - **homepage**: the [homepage](https://gethomepage.dev) dashboard, with a
   per-service `integrations` allow-list.
 - **cert-manager**: cert-manager plus a LibDNS ACME webhook, for

@@ -2,7 +2,7 @@
 rec {
   /**
     The upstream images pinned in a Dockerfile, as image archives for
-    `services.k3s.images`. Dependabot bumps the `FROM name:tag@digest`
+    `homelab.cluster.images`. Dependabot bumps the `FROM name:tag@digest`
     lines; their Nix hashes are in `images.lock` next to the Dockerfile,
     which `nix run github:nixos-homelab/shared#lock-images` updates. The
     tag gets the digest's first 12 hex digits, so a bump changes the pod
@@ -21,7 +21,7 @@ rec {
       redis = (images.pinned pkgs ./Dockerfile).redis;
     in
     {
-      services.k3s.images = [ redis ];
+      homelab.cluster.images = [ redis ];
       # ...
       image = redis.ref;
       imagePullPolicy = "Never";
@@ -64,7 +64,7 @@ rec {
     Image archives for refs that something upstream names (a chart, another
     module), locked to a digest and hash in `lockFile`, which
     `lock-images --lock FILE REF...` writes. Returns the archives for
-    `services.k3s.images` and `refFor`, which maps each ref to its archive's
+    `homelab.cluster.images` and `refFor`, which maps each ref to its archive's
     `name:tag` (the tag suffixed with the digest's first 12 hex digits).
 
     # Arguments

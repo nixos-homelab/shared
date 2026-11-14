@@ -1,6 +1,6 @@
 # A Job running a bash script once, from a ConfigMap, both named after the instance. The script is mounted at a path
-# hashed from it, so the pod template of the Job, which k8s keeps immutable, differs when the script does: k3s
-# replaces the Job, and it runs again.
+# hashed from it, so the pod template of the Job, which k8s keeps immutable, differs when the script does: the
+# runner replaces the Job, and it runs again.
 {
   config,
   lib,

@@ -1,6 +1,6 @@
 name: Check
 
-# The flake's checks: the manifests the modules send to k3s, validated without a cluster
+# The flake's checks: the manifests the modules send to the cluster, validated without a cluster
 on:
   push:
     branches: [main]

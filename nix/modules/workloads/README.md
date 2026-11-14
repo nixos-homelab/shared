@@ -6,7 +6,8 @@ The `workloads` module holds the settings every workload shares, in
 `homelab.kubernetes` takes [kubenix](https://github.com/hall/kubenix)
 configuration of the cluster: typed Kubernetes resources, so a misspelled
 field fails at evaluation and names where it was set. Each submodule
-instance goes to k3s as a manifest of its own, named after the instance;
+instance goes to the runner as a manifest of its own, named after the
+instance;
 the other objects go to the manifest `kubenix`.
 
 ## Custom resources
@@ -132,7 +133,7 @@ unless the instance sets `restartPolicy`. `cronjob` takes the `schedule`.
 
 `script` runs a bash `script` once: a ConfigMap and a Job, the script
 mounted at a path hashed from it, so a changed script changes the pod
-template of the Job, k3s replaces the Job and it runs again. It runs in
+template of the Job, the runner replaces the Job and it runs again. It runs in
 `image`, the container-utils of the cluster unless set.
 
 ```nix
@@ -190,13 +191,13 @@ homelab.kubernetes.submodules.instances.cert-manager.config.submodules.instances
 
 ## manifest
 
-Objects that go to k3s together: the resources on the instance `config`
-and the instances nested in it. Every top-level instance is one k3s
-manifest, and k3s deletes what a manifest stops holding. An object that
-moves to another manifest is deleted when k3s applies the old manifest
-first, and a Namespace or a PersistentVolumeClaim takes what it holds
-with it. So objects that went to k3s together stay in one `manifest`,
-under the old name.
+Objects that go to the runner together: the resources on the instance
+`config` and the instances nested in it. Every top-level instance is one
+manifest, and the runner deletes what a manifest stops holding. An object
+that moves to another manifest is deleted when the runner applies the old
+manifest first, and a Namespace or a PersistentVolumeClaim takes what it
+holds with it. So objects that went to the runner together stay in one
+`manifest`, under the old name.
 
 ```nix
 homelab.kubernetes.submodules.instances.cert-manager = {
