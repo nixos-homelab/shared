@@ -15,7 +15,7 @@ in
   options.homelab.k8sss = {
     enable = lib.mkEnableOption "k8sss";
   };
-  imports = [ inputs.k8sss.nixosModules.default ];
+  imports = [ inputs.k8sss.nixosModules.default ] ++ self.lib.importsApply [ ./metrics.nix ];
   config = lib.mkIf config.homelab.k8sss.enable {
     k8sss.enable = true;
     k8sss.images = lib.mapAttrs (_: image: lib.mkDefault (images.refFor image.default)) options.k8sss.images;
