@@ -6,6 +6,10 @@
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
   config = lib.mkIf config.homelab.k8sss.enable {
     k8sss.metricsPort = lib.mkIf config.homelab.alloy.enable 9001;
-    homelab.alloy.monitors.k8sss.podPort = 9001;
+    homelab.alloy.monitors.k8sss = {
+      podPort = 9001;
+      # k8sss writes its objects straight to services.k3s.manifests: no instance to put the policy in
+      manifest = null;
+    };
   };
 }

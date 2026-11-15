@@ -8,6 +8,8 @@
       namespace = "kube-system";
       selector.k8s-app = "kube-dns";
       podPort = 9153;
+      # k3s writes CoreDNS itself: no instance to put the policy in
+      manifest = null;
     };
   };
 }
