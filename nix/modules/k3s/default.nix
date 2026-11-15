@@ -228,7 +228,7 @@ in
     ];
     # Container scopes have no shutdown dependencies, so systemd only kills them at the very end, after services
     # they use (the NFS server) are gone. The kubelet stops the pods first when it gets logind's shutdown signal, and
-    # logind only waits InhibitDelayMaxSec for it (5 s by default) of the 30 s shutdownGracePeriod
+    # logind only waits InhibitDelayMaxSec for it (5 s by default) of the kubelet's 35 s (the groups below)
     services.logind.settings.Login.InhibitDelayMaxSec = 45;
     # The kubelet's shutdown marks the pods it stops as Failed, rejects (as Failed) the replacements that tolerate a
     # NotReady node, and leaves them all behind (https://github.com/kubernetes/kubernetes/issues/139246). Draining
@@ -279,7 +279,28 @@ in
         "${imageDir}/.cache.json".f.mode = "0644";
       };
     services.k3s = {
-      gracefulNodeShutdown.enable = true;
+      # The kubelet's shutdown stops the pods in groups by priority, lowest first. Its default puts every critical pod
+      # in one last group, the CNI agent (system-node-critical) with the cluster's critical Deployments
+      # (system-cluster-critical: coredns, metrics-server); the CNI agent then went first, the others' sandboxes
+      # couldn't be torn down, their volumes stayed mounted and the drain waited out its timeout on them. So the node's
+      # own agents get the last group. It replaces shutdownGracePeriod and shutdownGracePeriodCriticalPods, which the
+      # kubelet won't take together with it
+      extraKubeletConfig.shutdownGracePeriodByPodPriority = [
+        {
+          priority = 0;
+          shutdownGracePeriodSeconds = 20;
+        }
+        {
+          # system-cluster-critical
+          priority = 2000000000;
+          shutdownGracePeriodSeconds = 10;
+        }
+        {
+          # system-node-critical
+          priority = 2000001000;
+          shutdownGracePeriodSeconds = 5;
+        }
+      ];
       configPath = k3sConfig;
       # What the modules deploy themselves, in the order that the modules once wrote them in, so the unit stays the same
       disable =
