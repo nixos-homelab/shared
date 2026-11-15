@@ -40,7 +40,9 @@ let
           "docker-archive:${image}" "oci-archive:$out:$ref"
       '';
   images =
-    map (image: if cfg.zstdImages && !lib.hasSuffix ".zst" image.name then zstdArchive image else image) ccfg.images
+    map (
+      image: if cfg.zstdImages && !lib.hasSuffix ".zst" image.name then zstdArchive image else image
+    ) ccfg.images
     ++ [
       # pause, coredns, metrics-server and the other images k3s runs itself, so nothing is pulled at runtime
       config.services.k3s.package.airgap-images
@@ -136,9 +138,15 @@ in
       payload = pkgs.runCommand "k3s-payload" { } ''
         mkdir "$out"
         ${lib.concatStrings (
-          lib.mapAttrsToList (path: rule: ''
-            ln -s "${rule."L+".argument}" "$out/${baseNameOf path}"
-          '') (lib.filterAttrs (path: _: baseNameOf (dirOf path) == "manifests") config.systemd.tmpfiles.settings."10-k3s")
+          lib.mapAttrsToList
+            (path: rule: ''
+              ln -s "${rule."L+".argument}" "$out/${baseNameOf path}"
+            '')
+            (
+              lib.filterAttrs (
+                path: _: baseNameOf (dirOf path) == "manifests"
+              ) config.systemd.tmpfiles.settings."10-k3s"
+            )
         )}
       '';
       backup.hostPaths = [
@@ -149,25 +157,31 @@ in
     # The policy intent of the metrics-server k3s bundles, unless a module deploys one: the API server calls it as the
     # metrics API, pods labeled `cluster.local/metrics-server-egress: allow` may reach it. Its own egress, to the
     # kubelets and the API server, is up to the module of the CNI, as the policy intent has no egress
-    homelab.kubernetes.submodules.instances.metrics-server-policy = lib.mkIf (!provided "metrics-server") {
-      submodule = "manifest";
-      config = {
-        kubernetes.namespace = "kube-system";
-        submodules.instances.metrics-server = {
-          submodule = "pods";
-          args = {
-            selector.k8s-app = "metrics-server";
-            ports.https = 10250;
-            apiServerPorts = [ "https" ];
+    homelab.kubernetes.submodules.instances.metrics-server-policy =
+      lib.mkIf (!provided "metrics-server")
+        {
+          submodule = "manifest";
+          config = {
+            kubernetes.namespace = "kube-system";
+            submodules.instances.metrics-server = {
+              submodule = "pods";
+              args = {
+                selector.k8s-app = "metrics-server";
+                ports.https = 10250;
+                apiServerPorts = [ "https" ];
+              };
+            };
           };
         };
-      };
-    };
     systemd.services."setup-secrets".after = [ "k3s.service" ];
     services.k3s.manifests = lib.mapAttrs (
       _: manifest:
-      { inherit (manifest) enable; }
-      // (if manifest.content != null then { inherit (manifest) content; } else { inherit (manifest) source; })
+      {
+        inherit (manifest) enable;
+      }
+      // (
+        if manifest.content != null then { inherit (manifest) content; } else { inherit (manifest) source; }
+      )
     ) ccfg.manifests;
     services.k3s.enable = true;
     # The neutral path `lib.setup-secrets.mkScript` reads
@@ -189,18 +203,28 @@ in
       images
       k3sConfig
     ];
-    # k3s exits without a default route or with only some of the cluster's IP families, and network-online.target can
-    # be reached before either (wait-online --any settles for a link that isn't routable yet)
-    systemd.services.k3s.serviceConfig.ExecStartPre = lib.mkIf config.networking.useNetworkd [
-      (lib.join " " (
-        [
-          "${config.systemd.package}/lib/systemd/systemd-networkd-wait-online"
-          "--any"
-          "--operational-state=routable"
-          "--timeout=120"
-        ]
-        ++ lib.optional ccfg.enableIPv4 "--ipv4"
-        ++ lib.optional ccfg.enableIPv6 "--ipv6"
+    # k3s exits without a default route of each of the cluster's IP families, and network-online.target can be reached
+    # before them. So can systemd-networkd-wait-online: a routable address isn't a default route, and with --any a link
+    # without one (a WireGuard link with static addresses) counts. So this waits for the routes themselves
+    systemd.services.k3s.serviceConfig.ExecStartPre = [
+      (lib.getExe (
+        pkgs.writeShellApplication {
+          name = "k3s-wait-default-routes";
+          runtimeInputs = [
+            pkgs.coreutils
+            pkgs.iproute2
+          ];
+          text = ''
+            for _ in $(seq 120); do
+              if ${lib.optionalString ccfg.enableIPv4 "[[ -n $(ip -4 route show default) ]] &&"} \
+                ${lib.optionalString ccfg.enableIPv6 "[[ -n $(ip -6 route show default) ]] &&"} true; then
+                exit 0
+              fi
+              sleep 1
+            done
+            printf "No default route of each IP family of the cluster after 120 s, starting anyway\n" >&2
+          '';
+        }
       ))
     ];
     # Container scopes have no shutdown dependencies, so systemd only kills them at the very end, after services
