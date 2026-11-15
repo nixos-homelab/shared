@@ -121,8 +121,7 @@ in
       recompressing the images into OCI archives with zstd-compressed layers: about half the size in the store, and
       the first import (every image) about a third as long, as containerd keeps the layers compressed. It takes a few
       seconds of build per image. Meant for systems that are copied whole (installer and disk images), as later
-      deploys import only the images that changed. Not ready for that yet: the pods then start before k3s applies
-      the Gateway API CRDs, and in the example suite the Cilium operator, started before them, accepted no HTTPRoute'';
+      deploys import only the images that changed'';
   };
   imports = [
     self.nixosModules.cluster
