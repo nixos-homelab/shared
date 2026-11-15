@@ -18,6 +18,7 @@ in
   imports = [
     kubenix.modules.submodule
     kubenix.modules.k8s
+    kubenix.modules.submodules
     ./namespace.nix
     ./pod-spec.nix
   ];

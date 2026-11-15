@@ -49,13 +49,16 @@ in
     };
     podTemplate = mkOption {
       description = "The pod template (`metadata` and `spec`) built from the args, for the submodule to place in its resource.";
-      type = types.raw;
+      type = types.lazyAttrsOf types.raw;
       internal = true;
     };
   };
   config = {
     # Lets `submodules.defaults` single out the submodules that run pods
     _m.features = [ "pod-spec" ];
+    # A definition, not policy.nix's default: kubenix's submodules module defines every option of a submodule that can
+    # nest instances (`{ }` from their passthru), and any definition displaces a default
+    policySelector."app.kubernetes.io/name" = name;
     podTemplate = {
       metadata.labels = {
         "app.kubernetes.io/name" = name;
