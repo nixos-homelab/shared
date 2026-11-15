@@ -48,6 +48,14 @@ with subtest("k3s: a deploy removes the manifests it no longer has, with their A
     node.succeed(f"ln -s $(readlink -f /etc/k3s-prune-test/prune-test-boot.yaml) {manifests}/prune-test-boot.yaml")
     node.wait_until_succeeds(f"{kubectl} -n default get configmap prune-test-boot", timeout=120)
 
+with subtest("k3s: the prune of the Addons starts while k3s is stopped, starting k3s rather than failing"):
+    # As switch-to-configuration does: k3s stopped, then a start job for each unit on its own, in no fixed order. The
+    # prune's start may come first, before any start of k3s is queued
+    node.succeed("systemctl stop k3s-prune-addons.service k3s.service")
+    node.succeed("systemctl start k3s-prune-addons.service")
+    node.succeed("systemctl is-active k3s.service k3s-prune-addons.service")
+    node.wait_until_succeeds(f"{kubectl} get --raw /readyz", timeout=300)
+
 with subtest("shutdown: a reboot drains the node first, leaving no Failed pods and no cordon"):
     # Through logind, which sends PrepareForShutdown; the driver's reboot() presses Ctrl+Alt+Del, which doesn't. The
     # driver runs QEMU with -no-reboot, so the reboot ends the VM, and the test starts it again
