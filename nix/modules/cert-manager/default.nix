@@ -76,7 +76,10 @@ let
   };
 in
 {
-  imports = self.lib.importsApply [ ./metrics.nix ];
+  imports = self.lib.importsApply [
+    ./grafana.nix
+    ./metrics.nix
+  ];
   options.homelab.cert-manager = {
     debug = lib.mkEnableOption "debug mode";
     acme-staging-issuer.webhook-config = lib.mkOption {

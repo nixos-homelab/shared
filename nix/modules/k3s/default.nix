@@ -136,7 +136,10 @@ in
     inputs.setup-secrets.nixosModules.default
     ./prune.nix
   ]
-  ++ self.lib.importsApply [ ./metrics.nix ];
+  ++ self.lib.importsApply [
+    ./grafana.nix
+    ./metrics.nix
+  ];
   config = lib.mkIf cfg.enable {
     homelab.cluster = {
       inherit kubeconfig;
