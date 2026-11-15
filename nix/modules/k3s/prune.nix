@@ -167,15 +167,17 @@ in
         ExecStart = lib.getExe pruneLinks;
       };
     };
-    # Restarted with the other on a deploy that changes the links, ordered after it in the same transaction
+    # Restarted with the other on a deploy that changes the links, and run after k3s is up
     systemd.services.k3s-prune-addons = {
       description = "Delete the Addons and objects of the manifests removed from the k3s data directory";
       after = [
         "k3s.service"
         "k3s-prune-links.service"
       ];
-      # Without k3s there is no API server to wait for: fail at once rather than hold up a boot or a deploy
-      requisite = [ "k3s.service" ];
+      # Requires, not Requisite: switch-to-configuration starts each unit in a job of its own, in no fixed order
+      # (a HashMap), so this one's start can come while k3s is stopped and its start isn't queued yet. Requisite
+      # then fails the deploy at once; Requires queues k3s' start with this one, and After waits for it
+      requires = [ "k3s.service" ];
       wantedBy = [ "multi-user.target" ];
       restartTriggers = [ pruneLinks ];
       serviceConfig = {
