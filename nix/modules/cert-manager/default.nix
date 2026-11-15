@@ -76,6 +76,7 @@ let
   };
 in
 {
+  imports = self.lib.importsApply [ ./metrics.nix ];
   options.homelab.cert-manager = {
     debug = lib.mkEnableOption "debug mode";
     acme-staging-issuer.webhook-config = lib.mkOption {

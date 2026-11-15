@@ -179,6 +179,88 @@
         "type": "github"
       }
     },
+    "homelab-monitoring": {
+      "inputs": {
+        "docs": [
+          "docs"
+        ],
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "homelab-shared": [],
+        "homelab-storage": "homelab-storage",
+        "kube-generators": [
+          "kube-generators"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "setup-secrets": [
+          "setup-secrets"
+        ],
+        "systems": [
+          "systems"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794762093,
+        "narHash": "sha256-V/kGdmXLMAmUn3P/a7qRhda9a3HaAytepJw9qhKTnYc=",
+        "owner": "nixos-homelab",
+        "repo": "monitoring",
+        "rev": "b4cb9bc61f741a6dcfbe7f14a9baa57db817bf01",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos-homelab",
+        "repo": "monitoring",
+        "type": "github"
+      }
+    },
+    "homelab-storage": {
+      "inputs": {
+        "docs": [
+          "homelab-monitoring",
+          "docs"
+        ],
+        "flake-parts": [
+          "homelab-monitoring",
+          "flake-parts"
+        ],
+        "homelab-shared": [
+          "homelab-monitoring",
+          "homelab-shared"
+        ],
+        "kube-generators": [
+          "homelab-monitoring",
+          "kube-generators"
+        ],
+        "nixpkgs": [
+          "homelab-monitoring",
+          "nixpkgs"
+        ],
+        "setup-secrets": [
+          "homelab-monitoring",
+          "setup-secrets"
+        ],
+        "systems": [
+          "homelab-monitoring",
+          "systems"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794652941,
+        "narHash": "sha256-axc02Rope7PSYYLgte/AWlyPF8hynMvhmZQGisMjndk=",
+        "owner": "nixos-homelab",
+        "repo": "storage",
+        "rev": "2c0da7723fbfa9dfba6ee25c255c0f24d1d75175",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos-homelab",
+        "repo": "storage",
+        "type": "github"
+      }
+    },
     "import-tree": {
       "locked": {
         "lastModified": 1784254960,
@@ -209,11 +291,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794615244,
-        "narHash": "sha256-GoG+x8vL6uO4Udav13ovKDiqSID7NsddrT/ojfsVves=",
+        "lastModified": 1794759401,
+        "narHash": "sha256-0nz4squUFoveVVutTMpW9KZnX4GpLUTK8jKfrGBMBuY=",
         "owner": "andsens",
         "repo": "k8sss",
-        "rev": "8dc1b4b21727c4a52ab3ccf46b4e4de84517880e",
+        "rev": "244f383011413bcf1f9b590c9dcc32b51936f874",
         "type": "github"
       },
       "original": {
@@ -408,6 +490,7 @@
       "inputs": {
         "docs": "docs",
         "flake-parts": "flake-parts",
+        "homelab-monitoring": "homelab-monitoring",
         "k8sss": "k8sss",
         "kube-generators": "kube-generators_2",
         "kubenix": "kubenix",
