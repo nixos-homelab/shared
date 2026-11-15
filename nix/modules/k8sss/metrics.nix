@@ -2,9 +2,18 @@
 # only while Alloy is on
 { inputs, ... }:
 { config, lib, ... }:
+let
+  cfg = config.homelab.k8sss;
+in
 {
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
-  config = lib.mkIf config.homelab.k8sss.enable {
+  options.homelab.k8sss.metrics.enable = lib.mkOption {
+    description = "Whether Alloy scrapes step-ca's metrics, and step-ca serves them.";
+    type = lib.types.bool;
+    default = config.homelab.alloy.enable;
+    defaultText = lib.literalExpression "config.homelab.alloy.enable";
+  };
+  config = lib.mkIf (cfg.enable && cfg.metrics.enable) {
     k8sss.metricsPort = lib.mkIf config.homelab.alloy.enable 9001;
     homelab.alloy.monitors.k8sss = {
       podPort = 9001;
