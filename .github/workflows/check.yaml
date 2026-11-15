@@ -1,6 +1,7 @@
 name: Check
 
-# The flake's checks: the manifests the modules send to the cluster, validated without a cluster, and dead Nix code
+# The flake's checks: the manifests the modules send to the cluster, validated without a cluster, dead Nix code, and k3s
+# itself on one node in a VM
 on:
   push:
     branches: [main]
@@ -9,15 +10,30 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels the run of the older one; runs on main all finish
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+    # The VM test under the NixOS test driver needs KVM. The mode systemd gives /dev/kvm upstream: a group won't do, as
+    # Nix drops the supplementary groups of sandboxed builds
+    - name: Enable KVM
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: Install Nix
       uses: cachix/install-nix-action@91f6a0f59e94dfb2cfed0f4000f36a68ead1d20c # v31.11.4
       with:
-        extra_nix_config: experimental-features = nix-command flakes
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          system-features = kvm nixos-test benchmark big-parallel
     - name: Check the flake
       run: nix flake check -L

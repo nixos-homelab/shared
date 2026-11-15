@@ -95,6 +95,8 @@
               deadnix --fail --no-lambda-pattern-names ${self}
               touch $out
             '';
+            # k3s itself on one node, under the NixOS test driver (needs KVM)
+            checks.k3s = import ./nix/tests/k3s.nix { inherit self pkgs lib; };
             checks.manifests = self.lib.checks.manifests {
               inherit pkgs;
               modules = [
