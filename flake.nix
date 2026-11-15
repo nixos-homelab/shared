@@ -107,6 +107,8 @@
                       allowEgress = [ ];
                     };
                     k8sss.enable = true;
+                    # Evaluates the metrics parts of the modules, off with Alloy
+                    alloy.enable = true;
                   };
                 }
               ];

@@ -13,13 +13,13 @@
   imports = [
     kubenix.modules.submodule
     kubenix.modules.k8s
+    kubenix.modules.submodules
     ./namespace.nix
     ./pod-spec.nix
   ];
   options.labels = lib.mkOption {
     description = "The name label of the controller, for its metadata and selector.";
     type = lib.types.attrsOf lib.types.str;
-    readOnly = true;
     internal = true;
   };
   config = {
