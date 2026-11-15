@@ -76,7 +76,7 @@ let
   };
 in
 {
-  imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
+  imports = self.lib.importsApply [ ./metrics.nix ];
   options.homelab.cert-manager = {
     debug = lib.mkEnableOption "debug mode";
     acme-staging-issuer.webhook-config = lib.mkOption {
@@ -89,23 +89,6 @@ in
     };
   };
   config = {
-    # The release's Services: the controller's and cainjector's name the port `http-metrics`, the webhook's `metrics`.
-    # Alloy reaches all three through the policy `cert-manager-metrics` below
-    homelab.alloy.monitors = {
-      cert-manager = {
-        selector."app.kubernetes.io/instance" = "cert-manager";
-        port = "http-metrics";
-        egress = "cert-manager-metrics";
-      };
-      cert-manager-webhook = {
-        namespace = "cert-manager";
-        selector = {
-          "app.kubernetes.io/instance" = "cert-manager";
-          "app.kubernetes.io/name" = "webhook";
-        };
-        egress = "cert-manager-metrics";
-      };
-    };
     homelab.cluster.imageLocks.${toString ./images.lock} = certManager.refs;
     homelab.cluster.images = [ webhookImage ] ++ certManager.images;
     homelab.kubernetes.kubernetes.customTypes = lib.concatMap self.lib.crd2types.customTypes (
@@ -181,16 +164,6 @@ in
             };
           };
         submodules.instances = {
-          # The metrics of the release's pods (controller, cainjector, webhook), for Alloy. Their own policy, so that
-          # Alloy reaches nothing else of theirs
-          metrics = {
-            name = "cert-manager-metrics";
-            submodule = "pods";
-            args = {
-              selector."app.kubernetes.io/instance" = "cert-manager";
-              ports.http-metrics = 9402;
-            };
-          };
           # The webhook of the release: the controller and the API server call it
           webhook = {
             name = "cert-manager-webhook";
