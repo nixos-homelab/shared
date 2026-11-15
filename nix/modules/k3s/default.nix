@@ -125,6 +125,7 @@ in
   };
   imports = [
     self.nixosModules.cluster
+    inputs.homelab-monitoring.nixosModules.alloy
     inputs.setup-secrets.nixosModules.default
     ./prune.nix
   ];
@@ -172,6 +173,26 @@ in
             };
           };
         };
+    # The metrics of the CoreDNS k3s runs, on the port `metrics` of its Service kube-dns. Pods labeled
+    # `cluster.local/coredns-metrics-egress: allow` (Alloy) may reach that port alone; DNS has policies of its own
+    homelab.kubernetes.submodules.instances.coredns-metrics-policy = {
+      submodule = "manifest";
+      config = {
+        kubernetes.namespace = "kube-system";
+        submodules.instances.coredns-metrics = {
+          submodule = "pods";
+          args = {
+            selector.k8s-app = "kube-dns";
+            ports.metrics = 9153;
+          };
+        };
+      };
+    };
+    homelab.alloy.monitors.coredns = {
+      namespace = "kube-system";
+      selector.k8s-app = "kube-dns";
+      egress = "coredns-metrics";
+    };
     systemd.services."setup-secrets".after = [ "k3s.service" ];
     services.k3s.manifests = lib.mapAttrs (
       _: manifest:
