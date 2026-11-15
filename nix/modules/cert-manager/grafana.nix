@@ -18,6 +18,49 @@ in
     '';
   };
   config = lib.mkIf config.homelab.cert-manager.grafana.enable {
+    homelab.grafana.overviews.services = {
+      title = "Services";
+      rows.certificates = {
+        order = 300;
+        row = g.row { title = "Certificates"; } (
+          g.autoGrid { columns = 2; } [
+            (g.bargauge {
+              title = "Expiring within 30 days";
+              description = "cert-manager renews at two thirds of a certificate's life, so one here is overdue or about to be renewed";
+              unit = "d";
+              queries = [
+                (g.prom "sort((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 30)" {
+                  instant = true;
+                  legend = "{{exported_namespace}}/{{name}}";
+                })
+              ];
+              thresholds = [
+                {
+                  value = null;
+                  color = "red";
+                }
+                {
+                  value = 7;
+                  color = "orange";
+                }
+                {
+                  value = 21;
+                  color = "green";
+                }
+              ];
+              noValue = "None";
+            })
+            (g.table {
+              title = "Not ready";
+              queries = [
+                (g.prom ''certmanager_certificate_ready_status{condition="True"} == 0'' { instant = true; })
+              ];
+              noValue = "None";
+            })
+          ]
+        );
+      };
+    };
     homelab.grafana.overviews.cluster = {
       title = "Cluster";
       rows.certificates = {
