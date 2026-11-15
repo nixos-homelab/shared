@@ -15,10 +15,18 @@ in
   options.homelab.k8sss = {
     enable = lib.mkEnableOption "k8sss";
   };
-  imports = [ inputs.k8sss.nixosModules.default ] ++ self.lib.importsApply [ ./metrics.nix ];
+  imports = [
+    inputs.k8sss.nixosModules.default
+  ]
+  ++ self.lib.importsApply [
+    ./grafana.nix
+    ./metrics.nix
+  ];
   config = lib.mkIf config.homelab.k8sss.enable {
     k8sss.enable = true;
-    k8sss.images = lib.mapAttrs (_: image: lib.mkDefault (images.refFor image.default)) options.k8sss.images;
+    k8sss.images = lib.mapAttrs (
+      _: image: lib.mkDefault (images.refFor image.default)
+    ) options.k8sss.images;
     homelab.cluster.images = images.images;
     homelab.cluster.imageLocks.${toString ./images.lock} = refs;
     k8sss.dnsNames = [ "${config.networking.hostName}.${config.homelab.workloads.domain}" ];
