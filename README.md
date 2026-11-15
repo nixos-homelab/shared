@@ -9,7 +9,7 @@ SSH-key access to the cluster. Databases and storage are in
 
 See [the kubenix docs](https://nixos-homelab.github.io/shared/kubenix/)
 for the typed resources and submodules of `homelab.kubernetes`, and
-[the options reference](https://nixos-homelab.github.io/shared/options/) for the full list of module options.
+[the documentation](https://nixos-homelab.github.io/shared/), under Options, for the full list of module options.
 
 ## Setup
 
