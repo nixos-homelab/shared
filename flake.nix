@@ -27,6 +27,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     kube-generators.url = "github:farcaller/nix-kube-generators";
+    # Alloy's module, for the `homelab.alloy.monitors` of the components here
+    homelab-monitoring = {
+      url = "github:nixos-homelab/monitoring";
+      inputs.systems.follows = "systems";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.setup-secrets.follows = "setup-secrets";
+      inputs.kube-generators.follows = "kube-generators";
+      inputs.docs.follows = "docs";
+      inputs.homelab-shared.follows = "";
+    };
     docs = {
       url = "github:andsens/nix-docs";
       inputs.systems.follows = "systems";
