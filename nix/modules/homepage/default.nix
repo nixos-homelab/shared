@@ -192,6 +192,18 @@ in
   imports = [ self.nixosModules.cluster ];
   config = lib.mkIf cfg.enable {
     homelab.homepage.assets.${backgroundAsset} = cfg.backgroundImage;
+    # The CPU, memory and network of the node, read by homepage from inside its own pod (systeminformation), not
+    # through the metrics API
+    homelab.homepage.widgets.resources = {
+      enable = lib.mkDefault true;
+      settings = lib.mkDefault {
+        backend = "resources";
+        expanded = true;
+        cpu = true;
+        memory = true;
+        network = "default";
+      };
+    };
     homelab.cluster.images = [ image ];
     homelab.kubernetes.submodules.instances.homepage = {
       submodule = "workload";
