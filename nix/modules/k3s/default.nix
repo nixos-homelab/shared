@@ -84,29 +84,34 @@ let
       fi
     '';
   };
-  k3sConfig = kubelib.toYAMLFile ({
-    data-dir = cfg.dataDir;
-    flannel-backend = "none";
-    egress-selector-mode = "disabled";
-    disable-network-policy = true;
-    disable-kube-proxy = true;
-    disable-helm-controller = true;
-    embedded-registry = true;
-    kube-apiserver-arg = [ "service-node-port-range=1024-32767" ];
-    # k3s imports the preloaded images without unpacking them, so the first container of an image unpacks it. A big
-    # image on a slow disk outlasts k3s' 2 minutes, and each retry starts over
-    kubelet-arg = [ "runtime-request-timeout=10m" ];
-    cluster-cidr =
-      lib.optional ccfg.enableIPv4 ccfg.podCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.podCidr6;
-    service-cidr =
-      lib.optional ccfg.enableIPv4 ccfg.svcCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.svcCidr6;
-    tls-san = "external.${config.homelab.workloads.domain}";
-    kube-controller-manager-arg = [
-      "allocate-node-cidrs"
-    ]
-    ++ lib.optional ccfg.enableIPv4 "node-cidr-mask-size-ipv4=${builtins.toString (ipv4.fromString ccfg.podCidr4).prefixLength}"
-    ++ lib.optional ccfg.enableIPv6 "node-cidr-mask-size-ipv6=96";
-  });
+  k3sConfig = kubelib.toYAMLFile (
+    {
+      data-dir = cfg.dataDir;
+      egress-selector-mode = "disabled";
+      disable-helm-controller = true;
+      embedded-registry = true;
+      kube-apiserver-arg = [ "service-node-port-range=1024-32767" ];
+      # k3s imports the preloaded images without unpacking them, so the first container of an image unpacks it. A big
+      # image on a slow disk outlasts k3s' 2 minutes, and each retry starts over
+      kubelet-arg = [ "runtime-request-timeout=10m" ];
+      cluster-cidr =
+        lib.optional ccfg.enableIPv4 ccfg.podCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.podCidr6;
+      service-cidr =
+        lib.optional ccfg.enableIPv4 ccfg.svcCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.svcCidr6;
+      tls-san = "external.${config.homelab.workloads.domain}";
+      kube-controller-manager-arg = [
+        "allocate-node-cidrs"
+      ]
+      ++ lib.optional ccfg.enableIPv4 "node-cidr-mask-size-ipv4=${builtins.toString (ipv4.fromString ccfg.podCidr4).prefixLength}"
+      ++ lib.optional ccfg.enableIPv6 "node-cidr-mask-size-ipv6=96";
+    }
+    # The cluster's network comes from a CNI module (networking's Cilium), unless k3s brings its own
+    // lib.optionalAttrs (!cfg.bundledNetworking) {
+      flannel-backend = "none";
+      disable-network-policy = true;
+      disable-kube-proxy = true;
+    }
+  );
 in
 {
   # https://github.com/hercules-ci/flake-parts/pull/251
@@ -117,6 +122,9 @@ in
       description = "Location of the k3s data directory";
       type = lib.types.str;
     };
+    bundledNetworking = lib.mkEnableOption ''
+      k3s' own flannel, kube-proxy and network policy controller, for a cluster without a CNI module such as
+      networking's Cilium'';
     zstdImages = lib.mkEnableOption ''
       recompressing the images into OCI archives with zstd-compressed layers: about half the size in the store, and
       the first import (every image) about a third as long, as containerd keeps the layers compressed. It takes a few
@@ -305,7 +313,8 @@ in
       # What the modules deploy themselves, in the order that the modules once wrote them in, so the unit stays the same
       disable =
         lib.optional (provided "metrics-server") "metrics-server"
-        ++ lib.optional (provided "ingress") "traefik"
+        # k3s' traefik comes as a HelmChart, which the disabled helm controller never installs
+        ++ [ "traefik" ]
         ++ lib.optional (provided "load-balancer") "servicelb"
         ++ [
           "runtimes"

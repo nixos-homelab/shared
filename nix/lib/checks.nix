@@ -4,6 +4,40 @@
   lib,
 }:
 {
+  # A machine with this flake's modules set up enough to evaluate and run: the cluster's domain and issuers, a wheel
+  # user for k8sss, k3s. For the checks here and in the other homelab repos
+  fixture = {
+    networking.hostName = "manifests";
+    # k8sss makes the SSH keys of wheel users step-ca admins. The private half of this one is gone
+    users.users.admin = {
+      isNormalUser = true;
+      uid = 1000;
+      extraGroups = [ "wheel" ];
+      openssh.authorizedKeys.keys = [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+kj02ez01d/NBAbS3ybonaf76LMymdbEblV9pHEwZj admin@example.org"
+      ];
+    };
+    homelab.workloads = {
+      domain = "example.org";
+      acmeProvider = "letsencrypt-staging";
+      gatewayClassName = "example";
+    };
+    homelab.k3s = {
+      enable = true;
+      dataDir = "/var/lib/rancher/k3s";
+    };
+    homelab.cert-manager =
+      let
+        webhook-config = {
+          provider = "inwx";
+          secretName = "dns-credentials";
+        };
+      in
+      {
+        acme-staging-issuer = { inherit webhook-config; };
+        acme-production-issuer = { inherit webhook-config; };
+      };
+  };
   # Checks what a set of NixOS modules sends to the cluster, on top of a cluster with this flake's modules, without running
   # one: every manifest against the Kubernetes schemas and those of the CRDs it uses, every container against pulling.
   # config, a whole machine's NixOS configuration, takes the place of that cluster and the modules
@@ -16,39 +50,8 @@
           modules =
             lib.attrValues self.nixosModules
             ++ [
-              {
-                nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system;
-                networking.hostName = "manifests";
-                # k8sss makes the SSH keys of wheel users step-ca admins. The private half of this one is gone
-                users.users.admin = {
-                  isNormalUser = true;
-                  uid = 1000;
-                  extraGroups = [ "wheel" ];
-                  openssh.authorizedKeys.keys = [
-                    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN+kj02ez01d/NBAbS3ybonaf76LMymdbEblV9pHEwZj admin@example.org"
-                  ];
-                };
-                homelab.workloads = {
-                  domain = "example.org";
-                  acmeProvider = "letsencrypt-staging";
-                  gatewayClassName = "example";
-                };
-                homelab.k3s = {
-                  enable = true;
-                  dataDir = "/var/lib/rancher/k3s";
-                };
-                homelab.cert-manager =
-                  let
-                    webhook-config = {
-                      provider = "inwx";
-                      secretName = "dns-credentials";
-                    };
-                  in
-                  {
-                    acme-staging-issuer = { inherit webhook-config; };
-                    acme-production-issuer = { inherit webhook-config; };
-                  };
-              }
+              self.lib.checks.fixture
+              { nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system; }
             ]
             ++ modules;
         }).config,
