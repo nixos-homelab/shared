@@ -71,6 +71,52 @@ in
     '';
   };
   config = lib.mkIf config.homelab.cert-manager.grafana.enable {
+    homelab.grafana.home.tiles = {
+      certificate-expiry = {
+        group = "Certificates";
+        order = 300;
+        panel = g.stat {
+          title = "Soonest expiry";
+          description = "Days until the next certificate expires";
+          unit = "d";
+          links = [
+            {
+              title = "Services";
+              url = "/d/services/services?\${__url_time_range}";
+            }
+          ];
+          queries = [
+            (g.prom "min((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400)" {
+              instant = true;
+            })
+          ];
+        };
+      };
+      certificates = {
+        group = "Certificates";
+        order = 301;
+        panel = g.stat {
+          title = "Certificates";
+          decimals = 0;
+          links = [
+            {
+              title = "Services";
+              url = "/d/services/services?\${__url_time_range}";
+            }
+          ];
+          queries = [
+            (g.prom ''sum(certmanager_certificate_ready_status{condition="True"})'' {
+              instant = true;
+              legend = "ready";
+            })
+            (g.prom ''count(certmanager_certificate_ready_status{condition="True"})'' {
+              instant = true;
+              legend = "all";
+            })
+          ];
+        };
+      };
+    };
     homelab.grafana.overviews.services = {
       title = "Services";
       rows.certificates = {
