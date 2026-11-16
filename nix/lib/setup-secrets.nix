@@ -53,8 +53,11 @@
           ]
         }
         getKubeSecret() {
-          local namespace=$1 name=$2 field=$3
-          kubectl -n "$namespace" get secret "$name" -ogo-template="{{.data.$field | base64decode}}";
+          local namespace=$1 name=$2 field=$3 value
+          # kubectl prints a failed template to stdout, the whole object included, so nothing of a failed run may
+          # reach the caller's value (`getKubeSecret ... || wg genkey`), where errexit doesn't apply
+          value=$(kubectl -n "$namespace" get secret "$name" -ogo-template="{{.data.$field | base64decode}}") || return
+          printf '%s\n' "$value"
         }
         setKubeSecret() {
           local namespace=$1 name=$2 field value manifest
