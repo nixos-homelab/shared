@@ -14,4 +14,4 @@ jobs:
     steps:
     - uses: kubernetes-sigs/gateway-api@v1.7.0
     # No tags: Dependabot follows the latest commit
-    - uses: yannh/kubernetes-json-schema@2bfaff3898a7a4fa4e4760da3d2656211c9b4c71
+    - uses: yannh/kubernetes-json-schema@6ea44f54bb5cdedb2f61fba42c9b342e97959262
