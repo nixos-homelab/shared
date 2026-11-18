@@ -138,6 +138,7 @@ in
   ]
   ++ self.lib.importsApply [
     ./grafana.nix
+    ./logs.nix
     ./metrics.nix
   ];
   config = lib.mkIf cfg.enable {

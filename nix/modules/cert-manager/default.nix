@@ -78,6 +78,7 @@ in
 {
   imports = self.lib.importsApply [
     ./grafana.nix
+    ./logs.nix
     ./metrics.nix
   ];
   options.homelab.cert-manager = {

@@ -97,6 +97,11 @@
             '';
             # k3s itself on one node, under the NixOS test driver (needs KVM)
             checks.k3s = import ./nix/tests/k3s.nix { inherit self pkgs lib; };
+            # The parsers of this flake's workloads on their examples, through the pinned Alloy and Loki
+            checks.logs = inputs.homelab-monitoring.lib.logs.check {
+              inherit pkgs;
+              modules = [ { homelab.k8sss.enable = true; } ];
+            };
             checks.manifests = self.lib.checks.manifests {
               inherit pkgs;
               modules = [

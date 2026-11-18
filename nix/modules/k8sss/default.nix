@@ -20,6 +20,7 @@ in
   ]
   ++ self.lib.importsApply [
     ./grafana.nix
+    ./logs.nix
     ./metrics.nix
   ];
   config = lib.mkIf config.homelab.k8sss.enable {
