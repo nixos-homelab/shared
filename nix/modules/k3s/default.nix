@@ -185,13 +185,28 @@ in
           };
         };
     systemd.services."setup-secrets".after = [ "k3s.service" ];
+    # Content rendered as JSON, which k3s reads as the YAML it is, in place of the k3s module's YAML: its writer folds
+    # long double-quoted strings, and a fold after an escaped backslash came back as "\ \" (a regex in Alloy's config,
+    # \\d, read as \ \d). From the merged content, which other modules add to (k8sss)
     services.k3s.manifests = lib.mapAttrs (
-      _: manifest:
+      name: manifest:
       {
         inherit (manifest) enable;
       }
       // (
-        if manifest.content != null then { inherit (manifest) content; } else { inherit (manifest) source; }
+        if manifest.content != null then
+          {
+            inherit (manifest) content;
+            source = lib.mkForce (
+              pkgs.writeText "${name}.yaml" (
+                lib.concatMapStringsSep "\n---\n" builtins.toJSON (
+                  lib.toList config.services.k3s.manifests.${name}.content
+                )
+              )
+            );
+          }
+        else
+          { inherit (manifest) source; }
       )
     ) ccfg.manifests;
     services.k3s.enable = true;
