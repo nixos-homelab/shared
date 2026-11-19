@@ -10,7 +10,7 @@
 pkgs.testers.runNixOSTest {
   name = "k3s";
   nodes.node =
-    { lib, ... }:
+    { lib, pkgs, ... }:
     {
       imports = lib.attrValues self.nixosModules ++ [ self.lib.checks.fixture ];
       networking.hostName = lib.mkForce "node";
@@ -30,6 +30,26 @@ pkgs.testers.runNixOSTest {
         memorySize = 4096;
         cores = 2;
         diskSize = 8192;
+      };
+      # A cluster secret through the helpers: generated while missing, kept after that
+      setup-secrets = {
+        enable = true;
+        autoSetup = true;
+        sources.TEST_PASSWORD = self.lib.setup-secrets.kubeSecretSource pkgs {
+          description = "Test password";
+          namespace = "default";
+          name = "setup-secrets-test";
+          field = "password";
+          generate = "echo generated-$RANDOM$RANDOM";
+        };
+        destinations = [
+          (self.lib.setup-secrets.kubeSecretDestination pkgs {
+            logPrefix = "Test Secret";
+            namespace = "default";
+            name = "setup-secrets-test";
+            data.password = "TEST_PASSWORD";
+          })
+        ];
       };
       # Manifests the test links in by hand, as a generation that has them would
       environment.etc."k3s-prune-test/prune-test.yaml".text = ''

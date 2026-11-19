@@ -186,7 +186,17 @@ in
             };
           };
         };
-    systemd.services."setup-secrets".after = [ "k3s.service" ];
+    # The destinations built with lib.setup-secrets' kube helpers are in the group cluster. Its unit runs after every
+    # start of k3s and stops with it, so a deploy that restarts k3s stores them again once it is back. Declared, so
+    # the unit exists even before a module puts a destination in it
+    setup-secrets.groups.cluster = { };
+    systemd.services."setup-secrets@cluster" =
+      lib.mkIf (config.setup-secrets.enable && config.setup-secrets.autoSetup)
+        {
+          wantedBy = [ "k3s.service" ];
+          partOf = [ "k3s.service" ];
+          after = [ "k3s.service" ];
+        };
     # Content rendered as JSON, which k3s reads as the YAML it is, in place of the k3s module's YAML: its writer folds
     # long double-quoted strings, and a fold after an escaped backslash came back as "\ \" (a regex in Alloy's config,
     # \\d, read as \ \d). From the merged content, which other modules add to (k8sss)
