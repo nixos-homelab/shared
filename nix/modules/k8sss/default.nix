@@ -19,6 +19,7 @@ in
     inputs.k8sss.nixosModules.default
   ]
   ++ self.lib.importsApply [
+    ./home-area.nix
     ./grafana.nix
     ./logs.nix
     ./metrics.nix
