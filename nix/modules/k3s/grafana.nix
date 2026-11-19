@@ -5,7 +5,8 @@
 let
   g = inputs.homelab-monitoring.lib.grafana;
   dns = ''job="kube-dns"'';
-  k3sJournal = ''{source="journal", unit="k3s.service"}'';
+  # Below info only with the board's debug switch on
+  k3sJournal = ''{source="journal", unit="k3s.service", ${g.hideDebug}}'';
   toJournal = [
     (g.logsDrilldown {
       label = "unit";
