@@ -85,7 +85,8 @@ in
     A missing Secret or a missing field prints nothing, a value nobody has
     supplied yet. With `generate`, it makes a new value from that shell
     command instead. An API that doesn't answer fails the source, so a
-    value is never replaced because the cluster was down.
+    value is never replaced because the cluster was down. The source names
+    the Secret as its `storedIn`, so the setup-secrets TUI lets you edit it.
 
     # Arguments
 
@@ -120,6 +121,8 @@ in
     clusterAttempts
     // {
       inherit description;
+      # Where a destination stores what this reads back, which lets the setup-secrets TUI edit it
+      storedIn = "kube ${namespace}/${name}";
       # Nothing for a missing Secret (--ignore-not-found) or a missing field, a failure when the API doesn't answer.
       # Nothing is a value nobody has supplied yet, which setup-secrets doesn't count as a failure
       cmd = mkScript pkgs ''
