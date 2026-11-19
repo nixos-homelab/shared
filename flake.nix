@@ -102,6 +102,36 @@
               inherit pkgs;
               modules = [ { homelab.k8sss.enable = true; } ];
             };
+            # The LogQL queries of this flake's dashboard panels, through the pinned Loki: k3s' journal on Cluster
+            checks.logql = inputs.homelab-monitoring.lib.logs.queries {
+              inherit pkgs;
+              config =
+                (inputs.nixpkgs.lib.nixosSystem {
+                  modules =
+                    lib.attrValues self.nixosModules
+                    ++ lib.attrValues inputs.homelab-monitoring.nixosModules
+                    ++ [
+                      self.lib.checks.fixture
+                      { nixpkgs.hostPlatform = system; }
+                      {
+                        homelab = {
+                          alloy.enable = true;
+                          grafana.enable = true;
+                          loki.enable = true;
+                        };
+                      }
+                    ];
+                }).config;
+              streams = [
+                {
+                  source = "journal";
+                  node = "nas";
+                  unit = "k3s.service";
+                  program = "k3s";
+                  service_name = "k3s";
+                }
+              ];
+            };
             checks.manifests = self.lib.checks.manifests {
               inherit pkgs;
               modules = [
