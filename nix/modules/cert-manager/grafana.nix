@@ -41,12 +41,6 @@ let
     levels = life;
     queries = [ (g.prom "min(${lifeLeft})" { }) ];
   };
-  toServices = [
-    {
-      title = "Services";
-      url = "/d/services/services?\${__url_time_range}";
-    }
-  ];
   renewals = g.annotation {
     name = "Certificate renewals";
     expr = "changes(certmanager_certificate_not_before_timestamp_seconds[5m]) > 0";
@@ -77,25 +71,13 @@ in
     '';
   };
   config = lib.mkIf config.homelab.cert-manager.grafana.enable {
-    homelab.grafana.home.tiles = {
-      certificates = {
-        group = "Certificates";
-        order = 300;
-        panel = g.ratio (
-          {
-            title = "Certificates ready";
-            description = "Certificates cert-manager has ready, of all of them";
-            links = toServices;
-          }
-          // certificatesReady
-        );
-      };
-      certificate-life = {
-        group = "Certificates";
-        order = 301;
-        panel = g.stat (lowestLife // { links = toServices; });
-      };
+    homelab.grafana.home.health.certificates = {
+      title = "Certificates";
+      description = "certificates cert-manager has Ready";
+      order = 300;
+      inherit (certificatesReady) good all crit;
     };
+    homelab.grafana.home.annotations.renewals = renewals;
     homelab.grafana.overviews.services = {
       title = "Services";
       annotations.renewals = renewals;
