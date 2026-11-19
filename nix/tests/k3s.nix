@@ -51,11 +51,12 @@ pkgs.testers.runNixOSTest {
           })
         ];
       };
-      # Manifests the test links in by hand, as a generation that has them would
-      environment.etc."k3s-prune-test/prune-test.yaml".text = ''
+      # Manifests the test links in by hand, as a generation that has them would. The name of this one sorts after
+      # rolebindings.yaml of k3s (see the test)
+      environment.etc."k3s-prune-test/takeover.yaml".text = ''
         apiVersion: v1
         kind: ConfigMap
-        metadata: {name: prune-test, namespace: default}
+        metadata: {name: takeover, namespace: default}
         ---
         # One of k3s' own objects (rolebindings.yaml), which a manifest may take over
         apiVersion: rbac.authorization.k8s.io/v1
