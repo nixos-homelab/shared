@@ -21,6 +21,8 @@
       pods.step-ca = {
         namespace = "k8sss";
         format = "step-ca";
+        # The kubelet's probes, every few seconds
+        demote.health.expression = "GET /health 200";
         examples = [
           {
             lines = [
@@ -29,7 +31,8 @@
             expect = [
               {
                 message = "GET /health 200";
-                level = "info";
+                # Demoted
+                level = "debug";
                 fields = {
                   method = "GET";
                   path = "/health";
