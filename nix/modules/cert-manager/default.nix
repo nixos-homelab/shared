@@ -25,7 +25,9 @@ let
       };
       webhook.podLabels."cluster.local/apiserver-egress" = "allow";
       cainjector.podLabels."cluster.local/apiserver-egress" = "allow";
-      startupapicheck.podLabels."cluster.local/apiserver-egress" = "allow";
+      # A Helm post-install hook, which waits for the API once at install. Applied by k3s it runs at every fresh boot,
+      # racing the controller and cainjector, and fails for good once its retries are up before they're Ready
+      startupapicheck.enabled = false;
     };
   };
   # The chart's images, preloaded from images.lock
