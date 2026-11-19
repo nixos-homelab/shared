@@ -225,6 +225,12 @@ in
     };
     systemd.globalEnvironment.KUBECONFIG = kubeconfig;
     networking.firewall.allowedTCPPorts = [ 6443 ];
+    # metrics-server scrapes the kubelet from the pod network. With the bundled network, the rule that lets that in
+    # ahead of the firewall comes from the network policy controller of k3s (KUBE-ROUTER-INPUT), which starts only
+    # once the Ready condition of the node has a heartbeat from the second it starts in or later. When the kubelet
+    # reports Ready the second before, that heartbeat comes with its periodic report, 5 minutes on, and until then the
+    # firewall drops the scrapes
+    networking.firewall.interfaces.cni0.allowedTCPPorts = lib.mkIf cfg.bundledNetworking [ 10250 ];
     systemd.services.k3s.unitConfig.RequiresMountsFor = [ cfg.dataDir ];
     systemd.services.k3s.restartTriggers = [
       images
