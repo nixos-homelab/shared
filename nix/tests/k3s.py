@@ -93,3 +93,15 @@ with subtest("k3s: the boot imports no image again, containerd keeps every image
     tags = {tag for image in images for tag in image.get("repoTags") or []}
     missing = {name for entry in cache.values() for name in entry["images"]} - tags
     assert not missing, sorted(missing)
+
+# Last, as the restart of k3s makes it apply its own manifests again, which the takeover above races with
+with subtest("setup-secrets: the cluster group stores after k3s, keeps the value, runs again when k3s restarts"):
+    def stores():
+        return int(node.succeed("journalctl -b -o cat -u setup-secrets@cluster | grep -c '^Test Secret: Storing$' || true").strip())
+    password = f"{kubectl} -n default get secret setup-secrets-test -o jsonpath='{{.data.password}}'"
+    node.wait_until_succeeds(password, timeout=300)
+    value, runs = node.succeed(password), stores()
+    node.succeed("systemctl restart k3s.service")
+    node.wait_until_succeeds(f"test $(journalctl -b -o cat -u setup-secrets@cluster | grep -c '^Test Secret: Storing$') -gt {runs}", timeout=300)
+    node.wait_until_succeeds("systemctl is-active setup-secrets@cluster.service", timeout=300)
+    assert node.succeed(password) == value, "the restart replaced the stored value"
