@@ -69,7 +69,8 @@ let
       if [[ $(${kubectl} get node ${node} -o jsonpath='{.spec.unschedulable}') != true ]]; then
         ${kubectl} annotate node ${node} ${drainedAnnotation}=true --overwrite
       fi
-      timeout 40 ${kubectl} drain ${node} --ignore-daemonsets --delete-emptydir-data --force --timeout=35s || true
+      # Within logind's InhibitDelayMaxSec below, with room for the calls above on a busy API
+      timeout 80 ${kubectl} drain ${node} --ignore-daemonsets --delete-emptydir-data --force --timeout=75s || true
     '';
   };
   uncordon = pkgs.writeShellApplication {
@@ -282,8 +283,10 @@ in
     ];
     # Container scopes have no shutdown dependencies, so systemd only kills them at the very end, after services
     # they use (the NFS server) are gone. The kubelet stops the pods first when it gets logind's shutdown signal, and
-    # logind only waits InhibitDelayMaxSec for it (5 s by default) of the kubelet's 35 s (the groups below)
-    services.logind.settings.Login.InhibitDelayMaxSec = 45;
+    # logind only waits InhibitDelayMaxSec for it (5 s by default) of the kubelet's 35 s (the groups below). The drain
+    # holds a delay lock too: in example's NAS suite on a public runner the annotate and cordon took 13 s and the
+    # evictions, throttled by kubectl, outlasted 45 s, so logind rebooted before the drain was done
+    services.logind.settings.Login.InhibitDelayMaxSec = 90;
     # The kubelet's shutdown marks the pods it stops as Failed, rejects (as Failed) the replacements that tolerate a
     # NotReady node, and leaves them all behind (https://github.com/kubernetes/kubernetes/issues/139246). Draining
     # first deletes them and keeps the replacements Pending, cordoned, until the node is back. It holds its own delay
