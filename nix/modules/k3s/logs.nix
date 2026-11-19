@@ -12,7 +12,21 @@
     homelab.alloy.logs = {
       journal.k3s = {
         format = "go";
+        # A Kubernetes event k3s records (an addon applied, ...): what happened is in its `message` field, which the
+        # line's msg wins over
+        demote.events.expression = "Event occurred";
         examples = [
+          {
+            lines = [
+              ''time="2026-11-19T19:12:08+01:00" level=info msg="Event occurred" apiVersion=k3s.cattle.io/v1 fieldPath= kind=Addon logger=k3s/deploy message="Applied manifest at \"/mnt/cluster/k3s/server/manifests/vpn-egress.yaml\"" object=kube-system/vpn-egress reason=AppliedManifest type=Normal''
+            ];
+            expect = [
+              {
+                message = "Event occurred";
+                level = "debug";
+              }
+            ];
+          }
           {
             lines = [
               ''time="2026-11-18T08:09:13+01:00" level=fatal msg="Error: exec: \"k3s-server\": executable file not found in $PATH"''
@@ -46,6 +60,8 @@
       pods.coredns = {
         namespace = "kube-system";
         format = "coredns";
+        # k3s' Corefile imports custom files nobody has to write, and CoreDNS says so every 15 s
+        demote.custom-imports.expression = "No files matching import glob pattern: /etc/coredns/custom/\\*\\.(override|server)";
         examples = [
           {
             lines = [
@@ -55,7 +71,8 @@
             expect = [
               {
                 message = "No files matching import glob pattern: /etc/coredns/custom/*.override";
-                level = "warning";
+                # Demoted
+                level = "debug";
               }
               {
                 message = "Running configuration SHA512 = 591cf328cccc12bc490481273e738df59329c62c0b729d94e8b61db9961c2fa5";
