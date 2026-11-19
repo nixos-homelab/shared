@@ -27,17 +27,19 @@ with subtest("k3s: its bundled metrics-server answers the metrics API"):
 with subtest("k3s: a deploy removes the manifests it no longer has, with their Addons and objects, none of k3s' own"):
     addons = f"{kubectl} -n kube-system get addon -o jsonpath='{{.items[*].metadata.name}}'"
     before = set(node.succeed(addons).split())
-    node.succeed(f"ln -s $(readlink -f /etc/k3s-prune-test/prune-test.yaml) {manifests}/prune-test.yaml")
-    configmap = f"{kubectl} -n default get configmap prune-test"
+    node.succeed(f"ln -s $(readlink -f /etc/k3s-prune-test/takeover.yaml) {manifests}/takeover.yaml")
+    configmap = f"{kubectl} -n default get configmap takeover"
     node.wait_until_succeeds(configmap, timeout=120)
-    # Applied last, it took the binding over from k3s' rolebindings
+    # Applied after k3s' rolebindings.yaml, it took the binding over. Until a pass over the manifests goes through
+    # without an error (cert-manager.yaml fails while the webhook of cert-manager is down), k3s applies all of them
+    # again 15 s after each pass, by name, so the manifest sorts after rolebindings.yaml to stay last
     binding = f"{kubectl} get clusterrolebinding kube-apiserver-kubelet-admin"
     owner = f"{binding} -o jsonpath='{{.metadata.annotations.objectset\\.rio\\.cattle\\.io/owner-name}}'"
-    node.wait_until_succeeds(f"test \"$({owner})\" = prune-test", timeout=60)
+    node.wait_until_succeeds(f"test \"$({owner})\" = takeover", timeout=60)
     # What switch-to-configuration does when the links change: both units changed, so it restarts them
     node.succeed("systemctl restart k3s-prune-links.service k3s-prune-addons.service")
-    node.fail(f"test -L {manifests}/prune-test.yaml")
-    node.fail(f"{kubectl} -n kube-system get addon prune-test")
+    node.fail(f"test -L {manifests}/takeover.yaml")
+    node.fail(f"{kubectl} -n kube-system get addon takeover")
     node.wait_until_fails(configmap, timeout=60)
     node.succeed(binding)
     assert set(node.succeed(addons).split()) == before, (before, node.succeed(addons))
