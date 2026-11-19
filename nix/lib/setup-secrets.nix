@@ -82,10 +82,10 @@ in
   /**
     A setup-secrets source that reads one field of a Kubernetes Secret.
 
-    With `generate`, a missing Secret or a missing field makes a new value
-    from that shell command in place of failing; an API that doesn't
-    answer still fails the source, so a value is never replaced because
-    the cluster was down.
+    A missing Secret or a missing field prints nothing, a value nobody has
+    supplied yet. With `generate`, it makes a new value from that shell
+    command instead. An API that doesn't answer fails the source, so a
+    value is never replaced because the cluster was down.
 
     # Arguments
 
@@ -120,27 +120,20 @@ in
     clusterAttempts
     // {
       inherit description;
-      cmd = mkScript pkgs (
-        if generate == null then
-          "getKubeSecret ${
-            lib.escapeShellArgs [
-              namespace
-              name
-              field
-            ]
-          }"
-        else
-          ''
-            # Empty for a missing Secret (--ignore-not-found) or a missing field, a failure when the API doesn't answer
-            value=$(kubectl -n ${lib.escapeShellArg namespace} get secret ${lib.escapeShellArg name} --ignore-not-found \
-              -ogo-template=${lib.escapeShellArg ''{{with index .data "${field}"}}{{.}}{{end}}''})
-            if [[ -n $value ]]; then
-              base64 -d <<<"$value"
+      # Nothing for a missing Secret (--ignore-not-found) or a missing field, a failure when the API doesn't answer.
+      # Nothing is a value nobody has supplied yet, which setup-secrets doesn't count as a failure
+      cmd = mkScript pkgs ''
+        value=$(kubectl -n ${lib.escapeShellArg namespace} get secret ${lib.escapeShellArg name} --ignore-not-found \
+          -ogo-template=${lib.escapeShellArg ''{{with index .data "${field}"}}{{.}}{{end}}''})
+        if [[ -n $value ]]; then
+          base64 -d <<<"$value"
+        ${
+          lib.optionalString (generate != null) ''
             else
               ${generate}
-            fi
           ''
-      );
+        }fi
+      '';
     };
 
   /**
@@ -184,10 +177,10 @@ in
     {
       inherit description;
       # Long enough for the rollout to finish within one try
-      timeout = "150s";
-      retries = 2;
+      timeout = "120s";
+      retries = 1;
       cmd = mkScript pkgs ''
-        kubectl -n ${lib.escapeShellArg namespace} rollout status ${lib.escapeShellArg workload} --timeout=120s >&2
+        kubectl -n ${lib.escapeShellArg namespace} rollout status ${lib.escapeShellArg workload} --timeout=100s >&2
         kubectl exec -n ${lib.escapeShellArg namespace} -c ${lib.escapeShellArg container} ${lib.escapeShellArg workload} -- \
           ${command}
       '';
