@@ -92,11 +92,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793753224,
-        "narHash": "sha256-WbCAiOSyvoXrBuyBKIrRs2kZIMNXGLcTdFaJuDrvCZs=",
+        "lastModified": 1794770722,
+        "narHash": "sha256-WWJ8YmiEwrSdwA0q6JJP8yohd3XqQuLS55zQZAxDPjk=",
         "owner": "andsens",
         "repo": "nix-docs",
-        "rev": "4aaff74754f9983899bc2e12c3159dd008808eeb",
+        "rev": "000d8e66552cd854f82ddd70d150d6899664bd24",
         "type": "github"
       },
       "original": {
@@ -203,11 +203,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795113652,
-        "narHash": "sha256-wfDElCLRrMwWRpqy7Qv3OuHlUsKNiD0c77Ol2NPEGic=",
+        "lastModified": 1795121154,
+        "narHash": "sha256-V6Q8eW56Amtl3WSUkK10J/Bi5h8rtTRvv1XGVraNIic=",
         "owner": "nixos-homelab",
         "repo": "monitoring",
-        "rev": "74a31420504b73344e5d86be19bd6d1ffe4aef0a",
+        "rev": "914637741189c395532c6a6c544f08f9f115db96",
         "type": "github"
       },
       "original": {
@@ -517,11 +517,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794435401,
-        "narHash": "sha256-L10zvMKkBfgmtnM3O7e+x35Me9XT7n694UNWkaLZqq4=",
+        "lastModified": 1795121137,
+        "narHash": "sha256-81uyPWdiATz6ekehx0YLsdZngPI2XDk6rrTYxgmHqj8=",
         "owner": "andsens",
         "repo": "nixos-setup-secrets",
-        "rev": "e953a4e55cd51c64d805cab31a99075f05cb7e88",
+        "rev": "9146824b3a0921b63fdbaf979d4b811c4fe04b25",
         "type": "github"
       },
       "original": {
