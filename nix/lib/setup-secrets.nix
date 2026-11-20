@@ -179,9 +179,10 @@ in
     }:
     {
       inherit description;
-      # Long enough for the rollout to finish within one try
+      # Long enough for the rollout to finish within one try. The retries are for the exec: after k3s restarts the API
+      # reports the rollout finished from before, while the kubelet doesn't take exec connections for a few seconds yet
       timeout = "120s";
-      retries = 1;
+      inherit (clusterAttempts) retries;
       cmd = mkScript pkgs ''
         kubectl -n ${lib.escapeShellArg namespace} rollout status ${lib.escapeShellArg workload} --timeout=100s >&2
         kubectl exec -n ${lib.escapeShellArg namespace} -c ${lib.escapeShellArg container} ${lib.escapeShellArg workload} -- \
