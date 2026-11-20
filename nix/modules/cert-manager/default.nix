@@ -79,7 +79,6 @@ let
 in
 {
   imports = self.lib.importsApply [
-    ./home-area.nix
     ./grafana.nix
     ./logs.nix
     ./metrics.nix

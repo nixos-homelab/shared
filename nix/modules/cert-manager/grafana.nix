@@ -2,6 +2,8 @@
 # life it has left, when it expires and renews), the issuers and certificates as tiles on Cluster and Home, and each
 # renewal marked on the graphs. A certificate's life left is the share of its own lifetime, so a 90-day ACME
 # certificate and a ten-year internal one read alike: cert-manager renews at a third
+# Its namespace counts toward the `platform` area of the Home dashboard, whose CPU, memory and traffic graphs sum the
+# containers by area
 { inputs, ... }:
 { config, lib, ... }:
 let
@@ -70,135 +72,143 @@ in
       config.homelab.cert-manager.metrics.enable && config.homelab.alloy.enable && config.homelab.grafana.enable
     '';
   };
-  config = lib.mkIf config.homelab.cert-manager.grafana.enable {
-    homelab.grafana.home.health.certificates = {
-      title = "Certificates";
-      description = "certificates cert-manager has Ready";
-      order = 300;
-      inherit (certificatesReady) good all crit;
-    };
-    homelab.grafana.home.annotations.renewals = renewals;
-    homelab.grafana.overviews.services = {
-      title = "Services";
-      annotations.renewals = renewals;
-      panels = {
-        certificates-ready = panel 12 6 4 (
-          g.ratio (
-            {
-              title = "Certificates ready";
-              description = "Certificates cert-manager has ready, of all of them; any not ready is red";
-            }
-            // certificatesReady
-          )
-        );
-        certificate-life = panel 13 6 4 (g.stat lowestLife);
-        certificates = panel 300 24 17 (
-          g.table {
-            title = "Certificates";
-            description = "Every certificate cert-manager manages, the one with the least life left first: its issuer, whether it's ready, the share of its lifetime left (orange under a quarter, when renewal is late; red under a tenth), when it expires, and when cert-manager renews it (a renewal in the past is overdue)";
-            queries = [
-              (g.prom
-                ''max by (exported_namespace, name, issuer_name) (certmanager_certificate_ready_status{condition="True"})''
-                {
-                  instant = true;
-                }
-              )
-              (g.prom "max by (exported_namespace, name) (${lifeLeft})" { instant = true; })
-              (g.prom
-                "max by (exported_namespace, name) (certmanager_certificate_expiration_timestamp_seconds) * 1000"
-                {
-                  instant = true;
-                }
-              )
-              (g.prom
-                "max by (exported_namespace, name) (certmanager_certificate_renewal_timestamp_seconds) * 1000"
-                {
-                  instant = true;
-                }
-              )
-            ];
-            transformations = [
-              { id = "merge"; }
-              {
-                id = "organize";
-                options = {
-                  excludeByName.Time = true;
-                  renameByName = {
-                    exported_namespace = "namespace";
-                    name = "certificate";
-                    issuer_name = "issuer";
-                    "Value #A" = "ready";
-                    "Value #B" = "life left";
-                    "Value #C" = "expires";
-                    "Value #D" = "renews";
-                  };
-                  indexByName = {
-                    exported_namespace = 0;
-                    name = 1;
-                    issuer_name = 2;
-                    "Value #A" = 3;
-                    "Value #B" = 4;
-                    "Value #C" = 5;
-                    "Value #D" = 6;
-                  };
-                };
-              }
-            ];
-            overrides = [
-              (g.column "ready" {
-                mappings = ready;
-                display = "color-text";
-                width = 100;
-              })
-              (g.column "life left" {
-                unit = "percentunit";
-                levels = life;
-                display = "gauge";
-                description = "The share of the certificate's own lifetime left";
-              })
-              (g.column "expires" {
-                unit = "dateTimeFromNow";
-                width = 140;
-              })
-              (g.column "renews" {
-                unit = "dateTimeFromNow";
-                width = 140;
-                description = "When cert-manager renews it; in the past, the renewal is overdue";
-              })
-            ];
-            options.sortBy = [
-              {
-                displayName = "life left";
-                desc = false;
-              }
-            ];
-          }
-        );
+  config = lib.mkMerge [
+    {
+      homelab.grafana.home.areas.platform = {
+        color = "#c4a483";
+        namespaces = [ "cert-manager" ];
       };
-    };
-    homelab.grafana.overviews.cluster = {
-      title = "Cluster";
-      annotations.renewals = renewals;
-      panels = {
-        issuers = panel 20 3 4 (
-          g.ratio {
-            title = "Issuers";
-            description = "cert-manager's Issuers and ClusterIssuers that are ready (an ACME account registered, a CA's key in place), of all of them";
-            good = ''sum(certmanager_clusterissuer_ready_status{condition="True"}) + (sum(certmanager_issuer_ready_status{condition="True"}) or vector(0))'';
-            all = ''count(certmanager_clusterissuer_ready_status{condition="True"}) + (count(certmanager_issuer_ready_status{condition="True"}) or vector(0))'';
-            crit = 0.99;
-          }
-        );
-        certificates = panel 21 3 4 (
-          g.ratio (
-            {
+    }
+    (lib.mkIf config.homelab.cert-manager.grafana.enable {
+      homelab.grafana.home.health.certificates = {
+        title = "Certificates";
+        description = "certificates cert-manager has Ready";
+        order = 300;
+        inherit (certificatesReady) good all crit;
+      };
+      homelab.grafana.home.annotations.renewals = renewals;
+      homelab.grafana.overviews.services = {
+        title = "Services";
+        annotations.renewals = renewals;
+        panels = {
+          certificates-ready = panel 12 6 4 (
+            g.ratio (
+              {
+                title = "Certificates ready";
+                description = "Certificates cert-manager has ready, of all of them; any not ready is red";
+              }
+              // certificatesReady
+            )
+          );
+          certificate-life = panel 13 6 4 (g.stat lowestLife);
+          certificates = panel 300 24 17 (
+            g.table {
               title = "Certificates";
-              description = "Certificates cert-manager has ready, of all of them; Services lists each";
+              description = "Every certificate cert-manager manages, the one with the least life left first: its issuer, whether it's ready, the share of its lifetime left (orange under a quarter, when renewal is late; red under a tenth), when it expires, and when cert-manager renews it (a renewal in the past is overdue)";
+              queries = [
+                (g.prom
+                  ''max by (exported_namespace, name, issuer_name) (certmanager_certificate_ready_status{condition="True"})''
+                  {
+                    instant = true;
+                  }
+                )
+                (g.prom "max by (exported_namespace, name) (${lifeLeft})" { instant = true; })
+                (g.prom
+                  "max by (exported_namespace, name) (certmanager_certificate_expiration_timestamp_seconds) * 1000"
+                  {
+                    instant = true;
+                  }
+                )
+                (g.prom
+                  "max by (exported_namespace, name) (certmanager_certificate_renewal_timestamp_seconds) * 1000"
+                  {
+                    instant = true;
+                  }
+                )
+              ];
+              transformations = [
+                { id = "merge"; }
+                {
+                  id = "organize";
+                  options = {
+                    excludeByName.Time = true;
+                    renameByName = {
+                      exported_namespace = "namespace";
+                      name = "certificate";
+                      issuer_name = "issuer";
+                      "Value #A" = "ready";
+                      "Value #B" = "life left";
+                      "Value #C" = "expires";
+                      "Value #D" = "renews";
+                    };
+                    indexByName = {
+                      exported_namespace = 0;
+                      name = 1;
+                      issuer_name = 2;
+                      "Value #A" = 3;
+                      "Value #B" = 4;
+                      "Value #C" = 5;
+                      "Value #D" = 6;
+                    };
+                  };
+                }
+              ];
+              overrides = [
+                (g.column "ready" {
+                  mappings = ready;
+                  display = "color-text";
+                  width = 100;
+                })
+                (g.column "life left" {
+                  unit = "percentunit";
+                  levels = life;
+                  display = "gauge";
+                  description = "The share of the certificate's own lifetime left";
+                })
+                (g.column "expires" {
+                  unit = "dateTimeFromNow";
+                  width = 140;
+                })
+                (g.column "renews" {
+                  unit = "dateTimeFromNow";
+                  width = 140;
+                  description = "When cert-manager renews it; in the past, the renewal is overdue";
+                })
+              ];
+              options.sortBy = [
+                {
+                  displayName = "life left";
+                  desc = false;
+                }
+              ];
             }
-            // certificatesReady
-          )
-        );
+          );
+        };
       };
-    };
-  };
+      homelab.grafana.overviews.cluster = {
+        title = "Cluster";
+        annotations.renewals = renewals;
+        panels = {
+          issuers = panel 20 3 4 (
+            g.ratio {
+              title = "Issuers";
+              description = "cert-manager's Issuers and ClusterIssuers that are ready (an ACME account registered, a CA's key in place), of all of them";
+              good = ''sum(certmanager_clusterissuer_ready_status{condition="True"}) + (sum(certmanager_issuer_ready_status{condition="True"}) or vector(0))'';
+              all = ''count(certmanager_clusterissuer_ready_status{condition="True"}) + (count(certmanager_issuer_ready_status{condition="True"}) or vector(0))'';
+              crit = 0.99;
+            }
+          );
+          certificates = panel 21 3 4 (
+            g.ratio (
+              {
+                title = "Certificates";
+                description = "Certificates cert-manager has ready, of all of them; Services lists each";
+              }
+              // certificatesReady
+            )
+          );
+        };
+      };
+    })
+  ];
 }
