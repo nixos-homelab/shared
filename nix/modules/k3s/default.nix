@@ -79,6 +79,17 @@ let
       drained=$(${kubectl} get node ${node} -o jsonpath='{.metadata.annotations.${
         lib.replaceStrings [ "." ] [ "\\." ] drainedAnnotation
       }}')
+      # The pods the last shutdown left Failed: those the kubelet stopped (Terminated) and those it turned away
+      # meanwhile (NodeShutdown), DaemonSet pods that the drain skips and their controller kept re-creating. Their
+      # controllers have replaced them, and nothing collects them before thousands pile up. Before the uncordon, which
+      # marks the node as back
+      ${kubectl} get pods -A --field-selector=spec.nodeName=${node},status.phase=Failed \
+        -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.reason}{"\n"}{end}' |
+        while read -r namespace name reason; do
+          if [[ $reason = NodeShutdown || $reason = Terminated ]]; then
+            ${kubectl} -n "$namespace" delete pod "$name" --wait=false
+          fi
+        done
       if [[ $drained = true ]]; then
         ${kubectl} uncordon ${node}
         ${kubectl} annotate node ${node} ${drainedAnnotation}-
