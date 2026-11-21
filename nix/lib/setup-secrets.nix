@@ -123,6 +123,11 @@ in
       inherit description;
       # Where a destination stores what this reads back, which lets the setup-secrets TUI edit it
       storedIn = "kube ${namespace}/${name}";
+      # Changes with every write to the Secret; nothing while it is missing, which counts as changed
+      same = mkScript pkgs ''
+        kubectl -n ${lib.escapeShellArg namespace} get secret ${lib.escapeShellArg name} --ignore-not-found \
+          -ojsonpath='{.metadata.resourceVersion}'
+      '';
       # Nothing for a missing Secret (--ignore-not-found) or a missing field, a failure when the API doesn't answer.
       # Nothing is a value nobody has supplied yet, which setup-secrets doesn't count as a failure
       cmd = mkScript pkgs ''
@@ -155,6 +160,9 @@ in
     - `namespace`, `workload` (`String`): `workload` as kubectl takes it, `deploy/sonarr`
     - `container` (`String`)
     - `command` (`String`): shell words passed to `kubectl exec`, quoted as needed
+    - `same` (`String`, optional): shell words passed to `kubectl exec` that print a cheap token that changes with
+      the value, the mtime of the file it is read from (`stat -c %Y /data/config.xml`). Without it the source always
+      counts as changed, so the destinations that need it always run
 
     # Example
 
@@ -176,9 +184,18 @@ in
       workload,
       container,
       command,
+      same ? null,
     }:
     {
       inherit description;
+      same =
+        if same == null then
+          null
+        else
+          mkScript pkgs ''
+            kubectl exec -n ${lib.escapeShellArg namespace} -c ${lib.escapeShellArg container} ${lib.escapeShellArg workload} -- \
+              ${same}
+          '';
       # Long enough for the rollout to finish within one try. The retries are for the exec: after k3s restarts the API
       # reports the rollout finished from before, while the kubelet doesn't take exec connections for a few seconds yet
       timeout = "120s";
@@ -231,6 +248,7 @@ in
       inherit enable logPrefix;
       group = "cluster";
       requires = lib.unique (lib.attrValues data);
+      outputs = [ "kube:${namespace}/${name}" ];
       cmd = mkScript pkgs ''
         setKubeSecret ${
           lib.escapeShellArgs [
@@ -257,6 +275,7 @@ in
     - `logPrefix` (`String`)
     - `requires`, `wants` (`ListOf String`, default `[ ]`)
     - `script` (`String`): run through `mkScript`
+    - `outputs` (`ListOf String`, default `[ ]`): what the script writes, `kube:<namespace>/<name>` for a Secret
     - `enable` (`Bool`, default `true`)
   */
   clusterDestination =
@@ -266,6 +285,7 @@ in
       script,
       requires ? [ ],
       wants ? [ ],
+      outputs ? [ ],
       enable ? true,
     }:
     clusterAttempts
@@ -275,6 +295,7 @@ in
         logPrefix
         requires
         wants
+        outputs
         ;
       group = "cluster";
       cmd = mkScript pkgs script;

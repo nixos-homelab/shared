@@ -201,6 +201,15 @@ in
     # start of k3s and stops with it, so a deploy that restarts k3s stores them again once it is back. Declared, so
     # the unit exists even before a module puts a destination in it
     setup-secrets.groups.cluster = { };
+    # The outputs of the kube helpers' destinations, kube:<namespace>/<name>, which setup-secrets checks for its runs
+    # of only what changed and deletes in its cleanup
+    setup-secrets.outputKinds.kube = {
+      exists = self.lib.setup-secrets.mkScript pkgs ''
+        out=$(kubectl -n "''${OUTPUT%%/*}" get secret "''${OUTPUT#*/}" --ignore-not-found -oname) || exit 2
+        [[ -n $out ]]
+      '';
+      delete = self.lib.setup-secrets.mkScript pkgs ''kubectl -n "''${OUTPUT%%/*}" delete secret "''${OUTPUT#*/}" --ignore-not-found'';
+    };
     systemd.services."setup-secrets@cluster" =
       lib.mkIf (config.setup-secrets.enable && config.setup-secrets.autoSetup)
         {
