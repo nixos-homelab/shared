@@ -96,13 +96,26 @@ with subtest("k3s: the boot imports no image again, containerd keeps every image
     missing = {name for entry in cache.values() for name in entry["images"]} - tags
     assert not missing, sorted(missing)
 
-with subtest("setup-secrets: the cluster group stores after k3s, keeps the value, runs again when k3s restarts"):
-    def stores():
-        return int(node.succeed("journalctl -b -o cat -u setup-secrets@cluster | grep -c '^Test Secret: Storing$' || true").strip())
+with subtest("setup-secrets: the cluster group stores after k3s, runs again when k3s restarts, skipping the unchanged"):
+    def count(line):
+        return int(node.succeed(f"journalctl -b -o cat -u setup-secrets@cluster | grep -c '^{line}$' || true").strip())
     password = f"{kubectl} -n default get secret setup-secrets-test -o jsonpath='{{.data.password}}'"
     node.wait_until_succeeds(password, timeout=300)
-    value, runs = node.succeed(password), stores()
+    value, unchanged = node.succeed(password), count("Test Secret: Unchanged")
     node.succeed("systemctl restart k3s.service")
-    node.wait_until_succeeds(f"test $(journalctl -b -o cat -u setup-secrets@cluster | grep -c '^Test Secret: Storing$') -gt {runs}", timeout=300)
+    # The Secret's resourceVersion is what it was after the store, so the destination is skipped
+    # The count runs in the shell, at every try
+    node.wait_until_succeeds(
+        f"test $(journalctl -b -o cat -u setup-secrets@cluster | grep -c '^Test Secret: Unchanged$') -gt {unchanged}",
+        timeout=300,
+    )
     node.wait_until_succeeds("systemctl is-active setup-secrets@cluster.service", timeout=300)
     assert node.succeed(password) == value, "the restart replaced the stored value"
+
+with subtest("setup-secrets: a deleted Secret is stored again"):
+    node.wait_until_succeeds(f"{kubectl} get --raw /readyz", timeout=300)
+    stores = count("Test Secret: Storing")
+    node.succeed(f"{kubectl} -n default delete secret setup-secrets-test")
+    node.succeed("systemctl restart setup-secrets@cluster.service")
+    node.wait_until_succeeds(password, timeout=120)
+    assert count("Test Secret: Storing") > stores, node.succeed("journalctl -b -o cat -u setup-secrets@cluster")
