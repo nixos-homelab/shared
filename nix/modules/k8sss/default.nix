@@ -7,9 +7,12 @@
   ...
 }:
 let
-  # k8sss' own image refs, preloaded from images.lock
+  # k8sss' own image refs, preloaded from the lock k8sss ships with them: kept here, it went stale whenever a consumer's
+  # k8sss input (which follows its own) moved a default
   refs = map (image: image.default) (lib.attrValues options.k8sss.images);
-  images = self.lib.images.locked pkgs ./images.lock refs;
+  images = self.lib.images.locked pkgs (inputs.k8sss.lib.imageLock
+    or (throw "This k8sss predates its lib.imageLock, update the k8sss input")
+  ) refs;
 in
 {
   options.homelab.k8sss = {
@@ -29,7 +32,6 @@ in
       _: image: lib.mkDefault (images.refFor image.default)
     ) options.k8sss.images;
     homelab.cluster.images = images.images;
-    homelab.cluster.imageLocks.${toString ./images.lock} = refs;
     k8sss.dnsNames = [ "${config.networking.hostName}.${config.homelab.workloads.domain}" ];
     # Next to the objects k8sss puts in the manifest k8sss: who may reach step-ca, the pods labeled
     # `cluster.local/k8sss-egress: allow` and, through the NodePort, the world. Policies match the port of the pod
