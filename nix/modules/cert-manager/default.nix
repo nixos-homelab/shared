@@ -80,6 +80,7 @@ in
 {
   imports = self.lib.importsApply [
     ./grafana.nix
+    ./alerts.nix
     ./logs.nix
     ./metrics.nix
   ];

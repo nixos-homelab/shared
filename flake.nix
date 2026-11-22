@@ -132,6 +132,26 @@
                 }
               ];
             };
+            # The PromQL of this flake's alert rules through promtool, with Grafana on to have them
+            checks.promql = inputs.homelab-monitoring.lib.alerts.check {
+              inherit pkgs;
+              config =
+                (inputs.nixpkgs.lib.nixosSystem {
+                  modules =
+                    lib.attrValues self.nixosModules
+                    ++ lib.attrValues inputs.homelab-monitoring.nixosModules
+                    ++ [
+                      self.lib.checks.fixture
+                      { nixpkgs.hostPlatform = system; }
+                      {
+                        homelab = {
+                          alloy.enable = true;
+                          grafana.enable = true;
+                        };
+                      }
+                    ];
+                }).config;
+            };
             checks.manifests = self.lib.checks.manifests {
               inherit pkgs;
               modules = [
