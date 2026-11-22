@@ -31,7 +31,8 @@ pkgs.testers.runNixOSTest {
         cores = 2;
         diskSize = 8192;
       };
-      # A cluster secret through the helpers: generated while missing, kept after that
+      # A cluster secret through the helpers: generated while missing, kept after that, restarting a Deployment the test
+      # makes when it changes
       setup-secrets = {
         enable = true;
         autoSetup = true;
@@ -48,6 +49,7 @@ pkgs.testers.runNixOSTest {
             namespace = "default";
             name = "setup-secrets-test";
             data.password = "TEST_PASSWORD";
+            restart = [ "deployment/restart-test" ];
           })
         ];
       };

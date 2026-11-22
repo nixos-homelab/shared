@@ -112,10 +112,15 @@ with subtest("setup-secrets: the cluster group stores after k3s, runs again when
     node.wait_until_succeeds("systemctl is-active setup-secrets@cluster.service", timeout=300)
     assert node.succeed(password) == value, "the restart replaced the stored value"
 
-with subtest("setup-secrets: a deleted Secret is stored again"):
+with subtest("setup-secrets: a deleted Secret is stored again, restarting the workloads of its destination"):
     node.wait_until_succeeds(f"{kubectl} get --raw /readyz", timeout=300)
     stores = count("Test Secret: Storing")
+    # Only the pod template matters, so an image that never pulls will do
+    node.succeed(f"{kubectl} -n default create deployment restart-test --image=registry.invalid/none")
+    restarted = f"{kubectl} -n default get deployment restart-test -o jsonpath='{{.spec.template.metadata.annotations.kubectl\\.kubernetes\\.io/restartedAt}}'"
+    assert node.succeed(restarted) == "", "restarted before the Secret changed"
     node.succeed(f"{kubectl} -n default delete secret setup-secrets-test")
     node.succeed("systemctl restart setup-secrets@cluster.service")
     node.wait_until_succeeds(password, timeout=120)
     assert count("Test Secret: Storing") > stores, node.succeed("journalctl -b -o cat -u setup-secrets@cluster")
+    assert node.succeed(restarted) != "", "the store didn't restart the Deployment"

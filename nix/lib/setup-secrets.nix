@@ -219,6 +219,9 @@ in
     - `logPrefix` (`String`)
     - `namespace`, `name` (`String`): the Secret
     - `data` (`AttrsOf String`): field of the Secret to the source whose value it gets; every source is required
+    - `restart` (`ListOf String`, default `[ ]`): workloads in the Secret's namespace (`deployment/grafana`) restarted
+      when a write changes the Secret, for pods that start without it (`optional: true`) and read it only at start.
+      One not created yet is skipped, as it starts with the Secret
     - `enable` (`Bool`, default `true`)
 
     # Example
@@ -241,6 +244,7 @@ in
       namespace,
       name,
       data,
+      restart ? [ ],
       enable ? true,
     }:
     clusterAttempts
@@ -249,17 +253,30 @@ in
       group = "cluster";
       requires = lib.unique (lib.attrValues data);
       outputs = [ "kube:${namespace}/${name}" ];
-      cmd = mkScript pkgs ''
-        setKubeSecret ${
-          lib.escapeShellArgs [
-            namespace
-            name
-          ]
-        } \
-          ${lib.concatStringsSep " \\\n  " (
-            lib.mapAttrsToList (field: source: ''${lib.escapeShellArg field} "''${${source}:?}"'') data
-          )}
-      '';
+      cmd = mkScript pkgs (
+        ''
+          applied=$(setKubeSecret ${
+            lib.escapeShellArgs [
+              namespace
+              name
+            ]
+          } \
+            ${lib.concatStringsSep " \\\n  " (
+              lib.mapAttrsToList (field: source: ''${lib.escapeShellArg field} "''${${source}:?}"'') data
+            )})
+          printf '%s\n' "$applied"
+        ''
+        + lib.optionalString (restart != [ ]) ''
+          if [[ $applied != *" unchanged" ]]; then
+            for workload in ${lib.escapeShellArgs restart}; do
+              found=$(kubectl -n ${lib.escapeShellArg namespace} get "$workload" --ignore-not-found -oname)
+              if [[ -n $found ]]; then
+                kubectl -n ${lib.escapeShellArg namespace} rollout restart "$workload"
+              fi
+            done
+          fi
+        ''
+      );
     };
 
   /**
