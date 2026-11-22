@@ -22,10 +22,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
     };
-    nixhelm = {
-      url = "github:nix-community/nixhelm";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     kube-generators.url = "github:farcaller/nix-kube-generators";
     # Alloy's module, for the `homelab.alloy.monitors` of the components here
     homelab-monitoring = {

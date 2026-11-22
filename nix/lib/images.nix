@@ -67,6 +67,11 @@ rec {
     `homelab.cluster.images` and `refFor`, which maps each ref to its archive's
     `name:tag` (the tag suffixed with the digest's first 12 hex digits).
 
+    As with `lib.pins.locked`, the refs have to come from the flake that holds
+    `lockFile`, or from the flake that ships `lockFile` with them (k8sss'
+    `lib.imageLock`): refs from an input a consumer can override go stale
+    against a lock kept here.
+
     # Arguments
 
     `pkgs`: nixpkgs

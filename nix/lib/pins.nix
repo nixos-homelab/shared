@@ -28,6 +28,11 @@
     `homelab.cluster.sourceLocks`, `key` and `unlocked`: the fetch with an
     empty hash, whose mismatch error names the hash.
 
+    The ref has to come from the flake that holds `lockFile` (its pins.yaml,
+    say), never from an input a consumer can override with `follows`, such
+    as a nixhelm chart's version: a consumer whose input is newer would name
+    a key this lock doesn't have, and its evaluation fails.
+
     # Arguments
 
     `lockFile` (`Path`): JSON of `name@ref` to hash

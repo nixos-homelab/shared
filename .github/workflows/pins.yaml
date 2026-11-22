@@ -13,5 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: kubernetes-sigs/gateway-api@v1.7.0
+    # The cert-manager chart, from charts.jetstack.io, whose versions are these tags
+    - uses: cert-manager/cert-manager@v1.21.3
     # No tags: Dependabot follows the latest commit
     - uses: yannh/kubernetes-json-schema@2bfaff3898a7a4fa4e4760da3d2656211c9b4c71
