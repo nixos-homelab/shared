@@ -9,11 +9,22 @@ let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.cert-manager;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
-  charts = inputs.nixhelm.charts { inherit pkgs; };
+  # The chart's version is the tag in pins.yaml, its hash in pins.lock, so the chart, its CRDs and images.lock move
+  # together in one bump and no input a consumer overrides can pick a version these locks don't have
+  version = (self.lib.pins.refs ../../../.github/workflows/pins.yaml)."cert-manager/cert-manager";
+  chart = self.lib.pins.locked ../../../.github/pins.lock "cert-manager-chart" version (
+    hash:
+    kubelib.downloadHelmChart {
+      repo = "https://charts.jetstack.io/";
+      chart = "cert-manager";
+      inherit version;
+      chartHash = hash;
+    }
+  );
   rendered = kubelib.buildHelmChart {
     name = "cert-manager";
     namespace = "cert-manager";
-    chart = charts.jetstack.cert-manager;
+    chart = chart.src;
     values = {
       crds.enabled = true;
       config.enableGatewayAPI = true;
@@ -100,6 +111,7 @@ in
   };
   config = {
     homelab.cluster.imageLocks.${toString ./images.lock} = certManager.refs;
+    homelab.cluster.sourceLocks.${toString ../../../.github/pins.lock}.${chart.key} = chart.unlocked;
     homelab.cluster.images = [ webhookImage ] ++ certManager.images;
     homelab.kubernetes.kubernetes.customTypes = lib.concatMap self.lib.crd2types.customTypes (
       lib.filter (d: d.kind or null == "CustomResourceDefinition") (

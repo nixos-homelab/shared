@@ -1,4 +1,5 @@
 {
+  "cert-manager-chart@v1.21.3": "sha256-kjGAYWkePhiNrUUdpesTcGa9jlpFk1/gZs8sztLElRw=",
   "gateway-api-experimental-install@v1.7.0": "sha256-5tLTQHcX9UtXmyKtTRZLaGOJWzUk8hJQsNoMH/mgXVM=",
-  "kubernetes-json-schema-v1.35.8-standalone-strict@2bfaff3898a7a4fa4e4760da3d2656211c9b4c71": "sha256-azkW81seWoWwXvyrDw6IvW8GVLEg1Az+TfUykKiXFnU="
+  "kubernetes-json-schema-v1.35.0-standalone-strict@2bfaff3898a7a4fa4e4760da3d2656211c9b4c71": "sha256-KvjWhMvIRofgRMQZvj/ZFV/0Rdtp72zkYf+ZqRX+i4Q="
 }

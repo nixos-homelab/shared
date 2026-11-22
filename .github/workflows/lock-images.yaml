@@ -1,8 +1,9 @@
 name: Lock images
 
-# Dependabot bumps what names the images of lib.images.locked and chart in
-# flake.lock (a chart, k8sss), and the sources pinned in pins.yaml; this
-# commits the matching images.lock and pins.lock to its branch
+# Dependabot bumps the sources pinned in pins.yaml (a chart's tag among them)
+# and what names the images of lib.images.locked and chart (that chart, a
+# flake input); this commits the matching pins.lock and images.lock to its
+# branch, sources first
 on:
   pull_request:
     paths: ['flake.lock', '.github/workflows/pins.yaml']

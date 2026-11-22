@@ -60,9 +60,10 @@
     let
       pins = self.lib.pins.refs ../../.github/workflows/pins.yaml;
       pinned = self.lib.pins.locked ../../.github/pins.lock;
-      # The JSON schemas of the Kubernetes version the cluster runs, from the repository kubeconform reads them from by
-      # default
-      schemas = "v${config.homelab.cluster.kubernetesVersion}-standalone-strict";
+      # The JSON schemas of the Kubernetes minor the cluster runs, from the repository kubeconform reads them from by
+      # default. Of its first patch release: the version is the consumer's k3s, from a nixpkgs that follows its own, and
+      # keyed by the patch release a newer nixpkgs named a key pins.lock doesn't have
+      schemas = "v${lib.versions.majorMinor config.homelab.cluster.kubernetesVersion}.0-standalone-strict";
       kubernetesSchemas = pinned "kubernetes-json-schema-${schemas}" pins."yannh/kubernetes-json-schema" (
         hash:
         pkgs.fetchFromGitHub {
