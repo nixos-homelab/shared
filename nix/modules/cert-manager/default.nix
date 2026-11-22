@@ -25,6 +25,9 @@ let
       };
       webhook.podLabels."cluster.local/apiserver-egress" = "allow";
       cainjector.podLabels."cluster.local/apiserver-egress" = "allow";
+      # Cilium copies each Gateway's TLS Secret into cilium-secrets, cert-manager's annotations included, and cainjector
+      # then looked for the owning Certificate there: an error for every copy at every resync
+      cainjector.extraArgs = [ "--ignore-namespaces=cilium-secrets" ];
       # A Helm post-install hook, which waits for the API once at install. Applied by k3s it runs at every fresh boot,
       # racing the controller and cainjector, and fails for good once its retries are up before they're Ready
       startupapicheck.enabled = false;
