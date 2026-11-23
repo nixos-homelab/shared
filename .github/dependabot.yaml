@@ -4,6 +4,12 @@ updates:
   directory: /
   schedule:
     interval: weekly
+  # All homelab inputs in one PR: each homelab main is checked against the
+  # locks it has, so one moved alone can meet an older one it doesn't
+  # evaluate against
+  groups:
+    homelab:
+      patterns: ["homelab-*"]
 # Also bumps the source pins in .github/workflows/pins.yaml
 - package-ecosystem: github-actions
   directory: /
