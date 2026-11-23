@@ -91,6 +91,11 @@
               deadnix --fail --no-lambda-pattern-names ${self}
               touch $out
             '';
+            # One lock node per homelab repo
+            checks.flake-lock = self.lib.checks.flakeLock {
+              inherit pkgs;
+              lockFile = ./flake.lock;
+            };
             # k3s itself on one node, under the NixOS test driver (needs KVM)
             checks.k3s = import ./nix/tests/k3s.nix { inherit self pkgs lib; };
             # The parsers of this flake's workloads on their examples, through the pinned Alloy and Loki

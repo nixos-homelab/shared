@@ -133,4 +133,46 @@
         fi
         touch $out
       '';
+  # Fails when a flake.lock has more than one node for a nixos-homelab repo. Two copies of one repo's modules declare
+  # their options twice, which stops the eval deep in a trace; this names the inputs that bring each copy, so the
+  # consumer can add the missing follows
+  flakeLock =
+    { pkgs, lockFile }:
+    let
+      inherit (lib.importJSON lockFile) nodes;
+      homelab = lib.filterAttrs (_: node: (node.locked.owner or null) == "nixos-homelab") nodes;
+      duplicates = lib.filterAttrs (_: keys: lib.length keys > 1) (
+        lib.groupBy (key: homelab.${key}.locked.repo) (lib.attrNames homelab)
+      );
+      # The inputs locked to a node: "<node>.<input>", root being this flake
+      owners =
+        key:
+        lib.concatLists (
+          lib.mapAttrsToList (
+            owner: node:
+            lib.mapAttrsToList (input: _: "${owner}.${input}") (
+              lib.filterAttrs (_: target: target == key) (node.inputs or { })
+            )
+          ) nodes
+        );
+      report = lib.concatStrings (
+        lib.mapAttrsToList (
+          repo: keys:
+          "nixos-homelab/${repo} is locked ${toString (lib.length keys)} times:\n"
+          + lib.concatMapStrings (
+            key: "  ${homelab.${key}.locked.rev} through ${lib.concatStringsSep ", " (owners key)}\n"
+          ) keys
+        ) duplicates
+      );
+    in
+    pkgs.runCommand "flake-lock" { inherit report; } (
+      if duplicates == { } then
+        "touch $out"
+      else
+        ''
+          printf '%s' "$report" >&2
+          echo 'Make all but one of each follow the flake input of that repo' >&2
+          exit 1
+        ''
+    );
 }
