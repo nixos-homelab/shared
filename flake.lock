@@ -314,11 +314,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1787550939,
-        "narHash": "sha256-BlFIpyBO7uYiw1Ra/uPLS93I4wUK1A6oAPmG2CxCwVE=",
+        "lastModified": 1794907781,
+        "narHash": "sha256-fCfCSLozTHCazXxnlzQW1mkqBStOnApCHreOnEFiveU=",
         "owner": "hall",
         "repo": "kubenix",
-        "rev": "6a37ce99125b068a7da9eb7bebd29898ed043eb5",
+        "rev": "2b2ce52d0a284db2cf050fbc2737869ad162940f",
         "type": "github"
       },
       "original": {
