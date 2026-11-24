@@ -1,5 +1,5 @@
 diff --git a/pkg/agent/containerd/watcher.go b/pkg/agent/containerd/watcher.go
-index 6c8f83d..270e781 100644
+index 6c8f83d..f823b0b 100644
 --- a/pkg/agent/containerd/watcher.go
 +++ b/pkg/agent/containerd/watcher.go
 @@ -7,6 +7,7 @@ import (
@@ -10,17 +10,15 @@ index 6c8f83d..270e781 100644
  	"time"
  
  	containerd "github.com/containerd/containerd/v2/client"
-@@ -33,6 +34,9 @@ type watchqueue struct {
+@@ -33,6 +34,7 @@ type watchqueue struct {
  	watcher    *fsnotify.Watcher
  	filesCache map[string]*fileInfo
  	workqueue  workqueue.TypedDelayingInterface[string]
-+	// mu keeps pruneCache out while the worker processes an item: the worker holds the read lock, pruneCache the
-+	// write lock
-+	mu sync.RWMutex
++	mu         sync.RWMutex
  }
  
  func createWatcher(path string) (*fsnotify.Watcher, error) {
-@@ -114,6 +118,9 @@ func (w *watchqueue) processNextEventForImages(ctx context.Context, client *cont
+@@ -114,6 +116,9 @@ func (w *watchqueue) processNextEventForImages(ctx context.Context, client *cont
  func (w *watchqueue) processImageEvent(ctx context.Context, key string, client *containerd.Client, imageClient runtimeapi.ImageServiceClient) error {
  	defer w.workqueue.Done(key)
  
@@ -30,14 +28,9 @@ index 6c8f83d..270e781 100644
  	// Watch is rooted at the parent dir of the images dir, but we only need to handle things within the images dir
  	if !strings.HasPrefix(key, w.cfg.Images) {
  		return nil
-@@ -215,8 +222,13 @@ func fileChanged(current os.FileInfo, stored *fileInfo) bool {
- 
- // pruneCache removes entries for all files that have not been seen since the last restart,
+@@ -217,6 +222,9 @@ func fileChanged(current os.FileInfo, stored *fileInfo) bool {
  // and syncs the cache to disk. This is done to ensure that the cache file does not grow without
--// bounds by continuing to track files that do not exist.
-+// bounds by continuing to track files that do not exist. It takes the write lock, so it waits for
-+// the worker to finish the item it is processing: the workqueue no longer counts that item, but
-+// the worker has not marked it as seen yet.
+ // bounds by continuing to track files that do not exist.
  func (w *watchqueue) pruneCache() {
 +	w.mu.Lock()
 +	defer w.mu.Unlock()
