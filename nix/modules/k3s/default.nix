@@ -244,8 +244,8 @@ in
     services.k3s.enable = true;
     # At start, k3s prunes the cache of imported image files once its queue of them is empty, which is also the case
     # while it still processes the last one, and the prune drops every file it hasn't processed yet. That file is
-    # imported again at the next start. The patch prunes the files that no longer exist instead. The agent is built in
-    # the bundle of the k3s package, so it costs a build of k3s rather than a substitute
+    # imported again at the next start. The patch makes the prune wait for the file in flight (k3s-io/k3s#15027). The
+    # agent is built in the bundle of the k3s package, so it costs a build of k3s rather than a substitute
     services.k3s.package = lib.mkDefault (
       pkgs.k3s.override {
         overrideBundleAttrs = old: { patches = old.patches or [ ] ++ [ ./image-cache-prune.patch ]; };
