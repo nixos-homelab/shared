@@ -385,11 +385,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795248685,
-        "narHash": "sha256-QsjPFAnkF0NLUoSfkfxDJ39CKKko0x2QVchPoa6D+UM=",
+        "lastModified": 1795627878,
+        "narHash": "sha256-nM2afBc2G82OCmZQQMMRWEXFYpFTOrjo/xyZm57LYBQ=",
         "owner": "andsens",
         "repo": "nixos-setup-secrets",
-        "rev": "a68d116ac1e0123708eed0670dcdcbcc3540a6e7",
+        "rev": "5bbe9dd1ef8339fcd8937f182a1f62061de419e6",
         "type": "github"
       },
       "original": {

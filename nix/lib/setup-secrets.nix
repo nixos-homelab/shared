@@ -123,7 +123,7 @@ in
       inherit description;
       # Where a destination stores what this reads back, which lets the setup-secrets TUI edit it
       storedIn = "kube ${namespace}/${name}";
-      # Changes with every write to the Secret; nothing while it is missing, which counts as changed
+      # Changes with every write to the Secret; nothing while it is missing, a token like any other
       same = mkScript pkgs ''
         kubectl -n ${lib.escapeShellArg namespace} get secret ${lib.escapeShellArg name} --ignore-not-found \
           -ojsonpath='{.metadata.resourceVersion}'
@@ -160,10 +160,11 @@ in
     - `namespace`, `workload` (`String`): `workload` as kubectl takes it, `deploy/sonarr`
     - `container` (`String`)
     - `command` (`String`): shell words passed to `kubectl exec`, quoted as needed
-    - `same` (`String`, optional): shell words passed to `kubectl exec`, after the same wait for the rollout, that
-      print a cheap token that changes with the value, the mtime of the file it is read from
-      (`stat -c %Y /data/config.xml`). Without it the source always
-      counts as changed, so the destinations that need it always run
+    - `same` (`String`, optional): shell words passed to `kubectl exec` that print a cheap token that changes with
+      the value, the mtime of the file it is read from (`stat -c %Y /data/config.xml`). While the workload hasn't
+      rolled out it isn't run, and setup-secrets hears that it can't tell yet (exit 75), so the source counts as
+      changed and `cmd` waits for the rollout. Without it the source always counts as changed, so the destinations
+      that need it always run
 
     # Example
 
@@ -188,24 +189,39 @@ in
       same ? null,
     }:
     let
-      # Both wait for the rollout before the exec: during one, exec reaches a pod of the old ReplicaSet (after a reboot
-      # one without a node) or a container that hasn't started, and only the retries' backoff gets past it
+      # During a rollout, exec reaches a pod of the old ReplicaSet (after a reboot one without a node) or a container
+      # that hasn't started, so both wait for it first: cmd until it's done, same not at all
       execAfterRollout =
+        { timeout, notDone }:
         words:
         mkScript pkgs ''
-          kubectl -n ${lib.escapeShellArg namespace} rollout status ${lib.escapeShellArg workload} --timeout=100s >&2
+          kubectl -n ${lib.escapeShellArg namespace} rollout status ${lib.escapeShellArg workload} --timeout=${timeout} >&2${
+            lib.optionalString (notDone != "") " ${notDone}"
+          }
           kubectl exec -n ${lib.escapeShellArg namespace} -c ${lib.escapeShellArg container} ${lib.escapeShellArg workload} -- \
             ${words}
         '';
     in
     {
       inherit description;
-      same = if same == null then null else execAfterRollout same;
+      # Not done within a second, or an API that doesn't answer: it can't tell yet (EX_TEMPFAIL), which setup-secrets
+      # doesn't retry. --watch=false would be the obvious check, but it exits 0 on a rollout that isn't done
+      same =
+        if same == null then
+          null
+        else
+          execAfterRollout {
+            timeout = "1s";
+            notDone = "|| exit 75";
+          } same;
       # Long enough for the rollout to finish within one try. The retries are for the exec: after k3s restarts the API
       # reports the rollout finished from before, while the kubelet doesn't take exec connections for a few seconds yet
       timeout = "120s";
       inherit (clusterAttempts) retries;
-      cmd = execAfterRollout command;
+      cmd = execAfterRollout {
+        timeout = "100s";
+        notDone = "";
+      } command;
     };
 
   /**
