@@ -37,3 +37,9 @@ jobs:
           system-features = kvm nixos-test benchmark big-parallel
     - name: Check the flake
       run: nix flake check -L
+    # The VM tests, which a plain flake check leaves out
+    - name: Run the VM tests
+      run: |
+        nix eval --raw .#legacyPackages.x86_64-linux.nixosTests \
+          --apply 'tests: builtins.concatStringsSep "\n" (map (name: ".#nixosTests.${name}") (builtins.attrNames tests))' |
+          xargs nix build -L --no-link

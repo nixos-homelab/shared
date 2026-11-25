@@ -84,7 +84,12 @@
           };
         };
         perSystem =
-          { pkgs, system, ... }:
+          {
+            config,
+            pkgs,
+            system,
+            ...
+          }:
           {
             # Dead Nix code. Pattern names stay: modules take { config, lib, pkgs, ... } whether they use them or not
             checks.deadnix = pkgs.runCommand "deadnix" { nativeBuildInputs = [ pkgs.deadnix ]; } ''
@@ -96,8 +101,16 @@
               inherit pkgs;
               lockFile = ./flake.lock;
             };
-            # k3s itself on one node, under the NixOS test driver (needs KVM)
-            checks.k3s = import ./nix/tests/k3s.nix { inherit self pkgs lib; };
+            # The VM tests, under the NixOS test driver (needs KVM): `nix build .#nixosTests.<name>`. They stay out of the
+            # checks, so a plain `nix flake check` takes minutes; CI runs both
+            # k3s itself on one node
+            legacyPackages.nixosTests.k3s = import ./nix/tests/k3s.nix { inherit self pkgs lib; };
+            # That the VM tests evaluate, without building or running them
+            checks.nixos-tests = pkgs.writeText "nixos-tests" (
+              lib.concatMapStringsSep "\n" (test: builtins.unsafeDiscardOutputDependency test.drvPath) (
+                lib.attrValues config.legacyPackages.nixosTests
+              )
+            );
             # The parsers of this flake's workloads on their examples, through the pinned Alloy and Loki
             checks.logs = inputs.homelab-monitoring.lib.logs.check {
               inherit pkgs;
