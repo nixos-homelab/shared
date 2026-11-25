@@ -15,6 +15,12 @@
         # A Kubernetes event k3s records (an addon applied, ...): what happened is in its `message` field, which the
         # line's msg wins over
         demote.events.expression = "Event occurred";
+        # The CronJob controller updating a CronJob's status from a stale copy, as when a Job finishes within seconds of
+        # its start: it requeues and the next try lands. The message is klog's HandleError, what happened is in `error`
+        demote.cronjob-conflict = {
+          expression = "Unhandled Error";
+          fields.error = "error syncing CronJobController [^,]+, requeuing: Operation cannot be fulfilled on cronjobs\\.batch \"[^\"]+\": the object has been modified; please apply your changes to the latest version and try again";
+        };
         examples = [
           {
             lines = [
@@ -24,6 +30,24 @@
               {
                 message = "Event occurred";
                 level = "debug";
+              }
+            ];
+          }
+          {
+            lines = [
+              ''E1125 18:35:05.646668    2326 cronjob_controllerv2.go:179] "Unhandled Error" err="error syncing CronJobController ghostfolio/sync-accounts, requeuing: Operation cannot be fulfilled on cronjobs.batch \"sync-accounts\": the object has been modified; please apply your changes to the latest version and try again" logger="UnhandledError"''
+              ''E1125 06:36:12.104512    2326 controller.go:102] "Unhandled Error" err="apiserver received an error that is not an metav1.Status"''
+            ];
+            expect = [
+              {
+                message = "Unhandled Error";
+                level = "debug";
+                fields.error = ''error syncing CronJobController ghostfolio/sync-accounts, requeuing: Operation cannot be fulfilled on cronjobs.batch "sync-accounts": the object has been modified; please apply your changes to the latest version and try again'';
+              }
+              {
+                message = "Unhandled Error";
+                level = "error";
+                fields.error = "apiserver received an error that is not an metav1.Status";
               }
             ];
           }
