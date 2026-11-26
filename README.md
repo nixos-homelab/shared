@@ -34,6 +34,29 @@ for the typed resources and submodules of `homelab.kubernetes`, and
 }
 ```
 
+## Checks and the dev cluster
+
+`nix flake check` in a homelab repo runs the fast checks: the manifests
+against their schemas, the log parsers, the queries. The NixOS VM tests
+are in `nixosTests` (`nix build .#nixosTests.<name>`) and run in CI.
+
+To work on a module with real pods, `dev-cluster` runs k3s unprivileged,
+in nested namespaces, with a test's payload loaded the way its node gets
+it:
+
+```console
+$ nix run github:nixos-homelab/shared#dev-cluster -- start
+$ nix run github:nixos-homelab/shared#dev-cluster -- load .#nixosTests.grafana
+$ nix run github:nixos-homelab/shared#dev-cluster -- kubectl get pods -A
+$ nix run github:nixos-homelab/shared#dev-cluster -- stop
+```
+
+`load` puts the test node's manifests and image archives where k3s picks
+them up, and runs its setup-secrets for the cluster group. It needs a
+writable cgroup2 with the cpuset controller and subordinate ids; the
+cluster reaches no registry, so every image comes from Nix. It is not a
+gate: the VM tests are.
+
 ## Modules
 
 - **cluster**: the shared `homelab.cluster.*` options every other module
