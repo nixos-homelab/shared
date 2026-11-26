@@ -71,5 +71,10 @@ let
       path = v."L+".argument;
     }) (lib.filterAttrs (p: v: lib.hasSuffix "/agent/images/${baseNameOf p}" p && v ? "L+") settings)
   ) (lib.attrValues config.systemd.tmpfiles.settings);
+  # The node's setup-secrets, which the cluster's Secrets come from
+  script = lib.optional (config.setup-secrets.destinations or [ ] != [ ]) {
+    name = "setup-secrets";
+    path = lib.getExe config.setup-secrets.script;
+  };
 in
-pkgs.linkFarm "dev-cluster-payload-${name}" (manifests ++ images)
+pkgs.linkFarm "dev-cluster-payload-${name}" (manifests ++ images ++ script)

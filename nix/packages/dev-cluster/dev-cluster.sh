@@ -16,15 +16,17 @@ writable cgroup2 at /sys/fs/cgroup with the cpuset, cpu, memory and pids
 controllers, 65536 subordinate ids (newuidmap) and room for two cgroup levels
 below the root. Images come from the k3s airgap archive and what is linked into
 the image directory; the cluster has no way out to a registry.
-start: starts k3s and waits for the node and the system pods.
+start: starts k3s with the Gateway API CRDs, which a node's CNI module
+  installs, and waits for the node and the system pods.
 stop: kills everything of the cluster and removes its state.
 status: the node and the pods.
 load: puts the payload of a NixOS test's node where k3s picks it up while it
   runs: its manifests in k3s' manifests directory, which k3s' deploy controller
-  applies as on the node, and its image archives in the image directory. TEST
-  is a flake reference with the test's attribute, as in .#nixosTests.grafana
-  (looked up as given, then under legacyPackages, packages and checks of this
-  system). The node is the one running k3s, unless --node names it.
+  applies as on the node, and its image archives in the image directory; then
+  runs the node's setup-secrets for its cluster group. TEST is a flake
+  reference with the test's attribute, as in .#nixosTests.grafana (looked up
+  as given, then under legacyPackages, packages and checks of this system).
+  The node is the one running k3s, unless --node names it.
 kubectl: kubectl against the cluster.
 exec: runs CMD in the cluster's namespaces, as their root, with KUBECONFIG set.
 
@@ -99,7 +101,7 @@ $testdepth -gt 0 ]] && return 0;if [[ $3 = true ]]; then eval \
 return 1;};stdout() { printf -- "cat <<'EOM'\n%s\nEOM\n" "$1";};stderr() {
 printf -- "cat <<'EOM' >&2\n%s\nEOM\n" "$1";};error() { [[ -n $1 ]] && stderr \
 "$1";stderr "$usage";_return 1;};_return() { printf -- "exit %d\n" "$1";exit \
-"$1";};set -e;trimmed_doc=${DOC:0:1562};usage=${DOC:72:183};digest=173c3
+"$1";};set -e;trimmed_doc=${DOC:0:1687};usage=${DOC:72:183};digest=25c56
 options=(' --memory 1' ' --node 1');node_0(){ value __memory 0;};node_1(){
 value __node 1;};node_2(){ value TEST a;};node_3(){ value ARG a true;};node_4(){
 value CMD a;};node_5(){ switch start a:start;};node_6(){ switch stop a:stop;}
@@ -208,6 +210,9 @@ inner() {
   mount --bind "$dir/var" /var
   # k3s writes /etc/rancher; /etc may be read-only and refuse to be an overlay's lower layer
   cp -rL /etc/. "$dir/etc/" 2>/dev/null || true
+  # Where the homelab's setup-secrets scripts find the cluster
+  mkdir -p "$dir/etc/kubernetes"
+  ln -sfn "$kubeconfig" "$dir/etc/kubernetes/kubeconfig"
   mount --bind "$dir/etc" /etc
   mount -t cgroup2 cgroup2 /sys/fs/cgroup
   mkdir -p /sys/fs/cgroup/init
@@ -220,7 +225,8 @@ inner() {
   ip link set eth0 up
   ip link set gw0 up
   ip route add default via 10.99.0.1 dev eth0
-  mkdir -p "$dir/data/agent/images"
+  mkdir -p "$dir/data/agent/images" "$dir/data/server/manifests"
+  ln -sfn "$GATEWAY_CRDS" "$dir/data/server/manifests/gateway-api-crds.yaml"
   ln -sfn "$AIRGAP_IMAGES" "$dir/data/agent/images/k3s-airgap-images.tar.zst"
   # k3s' CNI plugins are one binary, called by the plugin's name
   mkdir -p "$dir/cni"
@@ -268,6 +274,18 @@ load() {
     m=$((m + 1))
   done
   printf "dev-cluster: %d manifests and %d image archives of %s linked in\n" "$m" "$n" "$ref" >&2
+  # The node's setup-secrets, its cluster group, as the node runs it after k3s: the destinations wait for the
+  # namespaces the manifests make
+  [[ -x $payload/setup-secrets ]] || return 0
+  local tries=0 out
+  until out=$(in_cluster "$payload/setup-secrets" --auto --group cluster 2>&1); do
+    if (( ++tries >= 30 )); then
+      printf "%s\ndev-cluster: setup-secrets still failing after %d tries\n" "$out" "$tries" >&2
+      return 1
+    fi
+    sleep 10
+  done
+  printf "dev-cluster: setup-secrets stored the cluster group's secrets\n" >&2
 }
 
 status() {

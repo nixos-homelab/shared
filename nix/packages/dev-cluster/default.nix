@@ -2,6 +2,7 @@
   lib,
   writeShellApplication,
   coreutils,
+  gatewayCRDs,
   findutils,
   gnugrep,
   iproute2,
@@ -29,6 +30,7 @@ writeShellApplication {
   runtimeEnv = {
     AIRGAP_IMAGES = k3s.passthru.airgap-images-amd64-tar-zst;
     CNI_PLUGINS = k3s.passthru.k3sCNIPlugins;
+    GATEWAY_CRDS = gatewayCRDs;
     PAYLOAD_NIX = ./payload.nix;
   };
   text = lib.readFile ./dev-cluster.sh;
