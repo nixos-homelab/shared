@@ -96,6 +96,9 @@ in
     - `description` (`String`): shown in the form
     - `namespace`, `name`, `field` (`String`): the Secret and its field
     - `generate` (`String`, optional): shell command that prints a new value
+    - `test` (`String`, optional): shell command that prints a stand-in for
+      tests, the source's `test` (setup-secrets' `testing`), for a value
+      someone types in on a real machine
 
     # Example
 
@@ -117,8 +120,11 @@ in
       name,
       field,
       generate ? null,
+      test ? null,
     }:
     clusterAttempts
+    # Only where given, so the source works with a setup-secrets from before `test`
+    // lib.optionalAttrs (test != null) { inherit test; }
     // {
       inherit description;
       # Where a destination stores what this reads back, which lets the setup-secrets TUI edit it
@@ -278,9 +284,11 @@ in
               name
             ]
           } \
-            ${lib.concatStringsSep " \\\n  " (
-              lib.mapAttrsToList (field: source: ''${lib.escapeShellArg field} "''${${source}:?}"'') data
-            )})
+            ${
+              lib.concatStringsSep " \\\n  " (
+                lib.mapAttrsToList (field: source: ''${lib.escapeShellArg field} "''${${source}:?}"'') data
+              )
+            })
           printf '%s\n' "$applied"
         ''
         + lib.optionalString (restart != [ ]) ''
