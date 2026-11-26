@@ -184,6 +184,8 @@
             };
             packages = {
               container-utils = pkgs.callPackage ./nix/packages/container-utils { };
+              # k3s for working on modules, in an unprivileged sandbox: `nix run .#dev-cluster -- start`
+              dev-cluster = pkgs.callPackage ./nix/packages/dev-cluster { };
               lock-images = pkgs.callPackage ./nix/packages/lock-images { };
               lib-docs = inputs.docs.lib.docs.lib {
                 inherit pkgs;
