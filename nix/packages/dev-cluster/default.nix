@@ -6,6 +6,7 @@
   gnugrep,
   iproute2,
   iptables,
+  jq,
   k3s,
   kubectl,
   nix,
@@ -19,6 +20,7 @@ writeShellApplication {
     gnugrep
     iproute2
     iptables
+    jq
     k3s
     kubectl
     nix
@@ -27,6 +29,7 @@ writeShellApplication {
   runtimeEnv = {
     AIRGAP_IMAGES = k3s.passthru.airgap-images-amd64-tar-zst;
     CNI_PLUGINS = k3s.passthru.k3sCNIPlugins;
+    PAYLOAD_NIX = ./payload.nix;
   };
   text = lib.readFile ./dev-cluster.sh;
   # docopt assigns the variables in an eval, and its parser isn't nounset-safe

@@ -7,6 +7,7 @@ Usage:
   dev-cluster start [--memory=SIZE]
   dev-cluster stop
   dev-cluster status
+  dev-cluster load [--node=NAME] TEST
   dev-cluster kubectl [ARG...]
   dev-cluster exec CMD [ARG...]
 
@@ -18,11 +19,18 @@ the image directory; the cluster has no way out to a registry.
 start: starts k3s and waits for the node and the system pods.
 stop: kills everything of the cluster and removes its state.
 status: the node and the pods.
+load: puts the payload of a NixOS test's node where k3s picks it up while it
+  runs: its manifests in k3s' manifests directory, which k3s' deploy controller
+  applies as on the node, and its image archives in the image directory. TEST
+  is a flake reference with the test's attribute, as in .#nixosTests.grafana
+  (looked up as given, then under legacyPackages, packages and checks of this
+  system). The node is the one running k3s, unless --node names it.
 kubectl: kubectl against the cluster.
 exec: runs CMD in the cluster's namespaces, as their root, with KUBECONFIG set.
 
 Options:
   --memory=SIZE  memory.max of the cluster's cgroup [default: 8G]
+  --node=NAME    The test's node to take the payload from
 
 The state is in \$DEV_CLUSTER_DIR, by default \${TMPDIR:-/tmp}/dev-cluster.
 "
@@ -91,22 +99,25 @@ $testdepth -gt 0 ]] && return 0;if [[ $3 = true ]]; then eval \
 return 1;};stdout() { printf -- "cat <<'EOM'\n%s\nEOM\n" "$1";};stderr() {
 printf -- "cat <<'EOM' >&2\n%s\nEOM\n" "$1";};error() { [[ -n $1 ]] && stderr \
 "$1";stderr "$usage";_return 1;};_return() { printf -- "exit %d\n" "$1";exit \
-"$1";};set -e;trimmed_doc=${DOC:0:1008};usage=${DOC:72:145};digest=ecec3
-options=(' --memory 1');node_0(){ value __memory 0;};node_1(){ value ARG a true
-};node_2(){ value CMD a;};node_3(){ switch start a:start;};node_4(){ switch \
-stop a:stop;};node_5(){ switch status a:status;};node_6(){ switch kubectl \
-a:kubectl;};node_7(){ switch exec a:exec;};node_8(){ sequence 3 9;};node_9(){
-optional 0;};node_10(){ sequence 6 11;};node_11(){ optional 12;};node_12(){
-repeatable 1;};node_13(){ sequence 7 2 11;};node_14(){ choice 8 4 5 10 13;}
+"$1";};set -e;trimmed_doc=${DOC:0:1562};usage=${DOC:72:183};digest=173c3
+options=(' --memory 1' ' --node 1');node_0(){ value __memory 0;};node_1(){
+value __node 1;};node_2(){ value TEST a;};node_3(){ value ARG a true;};node_4(){
+value CMD a;};node_5(){ switch start a:start;};node_6(){ switch stop a:stop;}
+node_7(){ switch status a:status;};node_8(){ switch load a:load;};node_9(){
+switch kubectl a:kubectl;};node_10(){ switch exec a:exec;};node_11(){ sequence \
+5 12;};node_12(){ optional 0;};node_13(){ sequence 8 14 2;};node_14(){
+optional 1;};node_15(){ sequence 9 16;};node_16(){ optional 17;};node_17(){
+repeatable 3;};node_18(){ sequence 10 4 16;};node_19(){ choice 11 6 7 13 15 18;}
 cat <<<' docopt_exit() { [[ -n $1 ]] && printf "%s\n" "$1" >&2;printf "%s\n" \
-"${DOC:72:145}" >&2;exit 1;}';local varnames=(__memory ARG CMD start stop \
-status kubectl exec) varname;for varname in "${varnames[@]}"; do unset \
-"var_$varname";done;parse 14 "$@";local p=${DOCOPT_PREFIX:-''};for varname in \
-"${varnames[@]}"; do unset "$p$varname";done;if declare -p var_ARG >/dev/null \
-2>&1; then eval $p'ARG=("${var_ARG[@]}")';else eval $p'ARG=()';fi;eval $p'__me'\
-'mory=${var___memory:-8G};'$p'CMD=${var_CMD:-};'$p'start=${var_start:-false};'\
-$p'stop=${var_stop:-false};'$p'status=${var_status:-false};'$p'kubectl=${var_k'\
-'ubectl:-false};'$p'exec=${var_exec:-false};';local docopt_i=1;[[ \
+"${DOC:72:183}" >&2;exit 1;}';local varnames=(__memory __node TEST ARG CMD \
+start stop status load kubectl exec) varname;for varname in "${varnames[@]}"; do
+unset "var_$varname";done;parse 19 "$@";local p=${DOCOPT_PREFIX:-''};for \
+varname in "${varnames[@]}"; do unset "$p$varname";done;if declare -p var_ARG \
+>/dev/null 2>&1; then eval $p'ARG=("${var_ARG[@]}")';else eval $p'ARG=()';fi
+eval $p'__memory=${var___memory:-8G};'$p'__node=${var___node:-};'$p'TEST=${var'\
+'_TEST:-};'$p'CMD=${var_CMD:-};'$p'start=${var_start:-false};'$p'stop=${var_st'\
+'op:-false};'$p'status=${var_status:-false};'$p'load=${var_load:-false};'$p'ku'\
+'bectl=${var_kubectl:-false};'$p'exec=${var_exec:-false};';local docopt_i=1;[[ \
 $BASH_VERSION =~ ^4.3 ]] && docopt_i=2;for ((;docopt_i>0;docopt_i--)); do for \
 varname in "${varnames[@]}"; do declare -p "$p$varname";done;done;}
 # docopt parser above, complete command for generating this parser is `docopt.sh dev-cluster.sh`
@@ -237,6 +248,28 @@ stop() {
   [[ ! -e $dir ]] || as_nested_root rm -rf -- "${dir:?}"
 }
 
+load() {
+  local ref=$1 node=$2 flake attr url payload
+  [[ -e $cg ]] || { printf "dev-cluster: not running\n" >&2; return 1; }
+  [[ $ref = *#* ]] || { printf "dev-cluster: %s names no attribute (FLAKE#ATTR)\n" "$ref" >&2; return 1; }
+  flake=${ref%%#*} attr=${ref#*#}
+  url=$(nix flake metadata --json "${flake:-.}" | jq -r .resolvedUrl)
+  payload=$dir/payload-${attr//\//-}
+  nix build --impure --out-link "$payload" --file "$PAYLOAD_NIX" \
+    --argstr url "$url" --argstr attr "$attr" --argstr node "$node"
+  local f n=0 m=0
+  mkdir -p "$dir/data/agent/images" "$dir/data/server/manifests"
+  for f in "$payload"/images/*; do
+    ln -sfn "$(readlink "$f")" "$dir/data/agent/images/$(basename "$f")"
+    n=$((n + 1))
+  done
+  for f in "$payload"/manifests/*; do
+    ln -sfn "$(readlink "$f")" "$dir/data/server/manifests/$(basename "$f")"
+    m=$((m + 1))
+  done
+  printf "dev-cluster: %d manifests and %d image archives of %s linked in\n" "$m" "$n" "$ref" >&2
+}
+
 status() {
   kubectl_ get node -o wide
   kubectl_ get pods -A
@@ -244,7 +277,7 @@ status() {
 
 main() {
   self=$(realpath "${BASH_SOURCE[0]}")
-  export AIRGAP_IMAGES CNI_PLUGINS
+  export AIRGAP_IMAGES CNI_PLUGINS PAYLOAD_NIX
   # kubectl's and CMD's arguments are theirs, options included
   case $1 in
     __outer) outer "$2"; return;;
@@ -256,6 +289,7 @@ main() {
   if $start; then start
   elif $stop; then stop
   elif $status; then status
+  elif $load; then load "$TEST" "$__node"
   fi
 }
 
