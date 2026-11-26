@@ -230,7 +230,7 @@ inner() {
   PATH=$dir/cni:$PATH
   local gate=feature-gates=KubeletInUserNamespace=true
   exec k3s server --data-dir "$dir/data" --node-ip 10.99.0.2 --flannel-iface eth0 \
-    --disable traefik --disable servicelb \
+    --disable traefik --disable servicelb --disable local-storage \
     --write-kubeconfig "$kubeconfig" --write-kubeconfig-mode 644 \
     --kubelet-arg="$gate" --kube-apiserver-arg="$gate" --kube-controller-manager-arg="$gate" \
     --kubelet-arg=cgroups-per-qos=false --kubelet-arg=enforce-node-allocatable= \
